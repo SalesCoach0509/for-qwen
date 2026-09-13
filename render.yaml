@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: performance-coach
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
