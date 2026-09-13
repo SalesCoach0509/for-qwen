@@ -54,6 +54,18 @@ export const MODEL_CAPABILITY_REGISTRY = {
     ],
     maxContext: 1000000,
   },
+  'gemini-3.8-flash': {
+    provider: 'gemini',
+    model: 'gemini-3.8-flash',
+    capabilities: [
+      ModelCapabilities.TEXT_GENERATION,
+      ModelCapabilities.STRUCTURED_OUTPUT,
+      ModelCapabilities.CONVERSATION,
+      ModelCapabilities.STREAMING,
+      ModelCapabilities.VISION,
+    ],
+    maxContext: 1000000,
+  },
   
   // OpenAI models
   'gpt-4o': {
