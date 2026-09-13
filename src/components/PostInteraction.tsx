@@ -210,7 +210,7 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {analysis.capabilityDiagnosis
               .sort((a, b) => a.score - b.score)
-              .map((cap, idx) => (
+              .map((cap) => (
               <div key={cap.capability} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-surface-800">{cap.capability}</p>

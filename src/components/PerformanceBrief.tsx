@@ -15,7 +15,6 @@ interface Props {
 export default function PerformanceBrief({ state, interactionId, navigate }: Props) {
   const [brief, setBrief] = useState<PreparationBrief | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   const interaction = state.interactions.find(i => i.id === interactionId);
 
@@ -39,9 +38,7 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
     });
   }, [interactionId, interaction]);
 
-  const toggleSection = (key: string) => {
-    setExpandedSections(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+
 
   if (loading || !brief) {
     return (

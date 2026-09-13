@@ -10,7 +10,7 @@
  */
 
 import { generateBrief, generatePracticeEvaluation, analyzeTranscript } from '../ai-service';
-import { Interaction, PracticeEvaluation, PostInteractionAnalysis } from '../types';
+import { Interaction, PracticeEvaluation } from '../types';
 import { isLLMAvailable, checkBackendHealth, setLLMAvailable } from '../llm-provider';
 
 // ============================================================================
@@ -194,7 +194,7 @@ export async function validatePreparationQuality(): Promise<BriefQualityResult[]
   return results;
 }
 
-function evaluateBriefQuality(brief: any, interaction: Interaction, type: string): BriefQualityResult {
+function evaluateBriefQuality(brief: any, _interaction: Interaction, type: string): BriefQualityResult {
   const result: BriefQualityResult = {
     interactionType: type,
     specificity: 0,
@@ -367,41 +367,41 @@ export function createObjectionHandlingBenchmark(): BenchmarkCase[] {
       scenario: 'Price objection with value reframe',
       objectionType: 'price',
       stakeholderObjection: 'Your price is 30% higher than our current solution.',
-      employeeResponse: 'I understand the price difference is significant. Before we discuss pricing, can I ask - what\'s the business impact of the limitations you\'re experiencing with your current solution? If we could eliminate those issues, what would that be worth to your organization?',
-      expectedRange: [3.5, 4.5],
-      expectedEvidence: ['Acknowledges concern', 'Reframes around business value', 'Asks about cost of inaction', 'Maintains commercial discipline'],
+      employeeResponse: 'I understand the price difference is significant. Before we discuss pricing, can I ask - what\'s the business impact of the limitations you\'re experiencing with your current solution? If we could eliminate those issues, what would that be worth to you?',
+      expectedRange: [4.0, 4.5],
+      expectedEvidence: ['Acknowledges concern', 'Reframes around business value', 'Asks about cost of inaction'],
       unacceptableInterpretations: ['Offered discount', 'Did not explore business impact'],
     },
     {
       id: 'OH-008',
-      scenario: 'Competitor with switching cost',
+      scenario: 'Competitor with switching costs',
       objectionType: 'competitor',
-      stakeholderObjection: 'We\'re getting a much better deal from Competitor Y.',
-      employeeResponse: 'I appreciate you being transparent about that. If switching to Competitor Y would save you money, help me understand - what would be the cost of migrating your team, retraining everyone, and potentially losing the productivity gains you\'ve made with our platform over the past year?',
-      expectedRange: [3.5, 4.5],
-      expectedEvidence: ['Acknowledges competitor offer', 'Reframes around switching costs', 'Quantifies hidden costs', 'Preserves leverage'],
-      unacceptableInterpretations: ['Bad-mouthed competitor', 'Offered price match'],
+      stakeholderObjection: 'Competitor X is much cheaper.',
+      employeeResponse: 'I understand the cost difference. Before we compare, can I ask - what would be the cost of migrating your team, retraining everyone, and losing the productivity gains you\'ve made? What\'s the total cost of switching?',
+      expectedRange: [4.0, 4.5],
+      expectedEvidence: ['Acknowledges concern', 'Reframes around switching costs', 'Asks about total cost of switching'],
+      unacceptableInterpretations: ['Offered discount', 'Did not explore switching costs'],
     },
     // Level 5: Advanced
     {
       id: 'OH-009',
-      scenario: 'Layered objections',
-      objectionType: 'price+timing',
-      stakeholderObjection: 'Your price is too high and we need to make a decision by Friday.',
-      employeeResponse: 'I understand both the pricing concern and the time pressure. Let me ask - if we could structure this in a way that addressed your budget constraints while still delivering the value you need, would that help? And regarding Friday - what\'s driving that specific deadline? Is there a business event or decision point we should be aware of?',
-      expectedRange: [4.5, 5.0],
-      expectedEvidence: ['Handles multiple objections', 'Identifies underlying priorities', 'Offers structural alternatives', 'Uncovers hidden deadline drivers', 'Maintains control'],
-      unacceptableInterpretations: ['Addressed only one objection', 'Offered immediate discount', 'Did not explore deadline'],
+      scenario: 'Multiple objections',
+      objectionType: 'multiple',
+      stakeholderObjection: 'We have three concerns: price is too high, implementation will take too long, and we\'re not sure about ROI.',
+      employeeResponse: 'I appreciate you sharing all three concerns. Let me address them systematically. First - on price, what\'s driving that concern? Is it the total cost, or are you comparing to a specific alternative? Second - on implementation, what specific timeline are you working with? Third - on ROI, what would success look like for you? Let\'s tackle these one by one.',
+      expectedRange: [4.6, 5.0],
+      expectedEvidence: ['Handles multiple objections', 'Identifies hidden priorities', 'Offers systematic approach'],
+      unacceptableInterpretations: ['Addressed only one objection', 'Did not acknowledge all concerns'],
     },
     {
       id: 'OH-010',
-      scenario: 'Internal approval objection',
-      objectionType: 'internal-approval',
-      stakeholderObjection: 'I need to get this approved by our CFO, and she\'s very cost-focused.',
-      employeeResponse: 'That makes sense. Help me understand - what has been your experience presenting vendor decisions to her in the past? What does she typically focus on, and what would make this an easy approval for her? If we could build a business case that clearly shows ROI and risk mitigation, would that help you champion this internally?',
-      expectedRange: [4.5, 5.0],
-      expectedEvidence: ['Acknowledges approval process', 'Explores CFO priorities', 'Offers to help build business case', 'Positions employee as ally', 'Identifies champion role'],
-      unacceptableInterpretations: ['Offered discount for approval', 'Did not explore approval process'],
+      scenario: 'Hidden concern discovery',
+      objectionType: 'hidden',
+      stakeholderObjection: 'We need to think about it.',
+      employeeResponse: 'I understand you need time to think. Can I ask - is there a specific concern holding you back, or is it something else? Sometimes it\'s about timing, sometimes it\'s about fit, sometimes it\'s about budget. What\'s top of mind for you?',
+      expectedRange: [4.6, 5.0],
+      expectedEvidence: ['Probes for hidden concern', 'Offers categories to help articulate', 'Maintains conversational control'],
+      unacceptableInterpretations: ['Accepted vague response', 'Did not probe deeper'],
     },
   ];
 }
@@ -447,7 +447,7 @@ export async function runObjectionHandlingBenchmark(): Promise<BenchmarkResult[]
     // Check evidence grounding
     const evaluation = evaluations[0];
     const ohAssessment = evaluation.capabilityScores.find(c => c.capability === 'Objection Handling');
-    const evidenceGrounded = ohAssessment?.evidence ? ohAssessment.evidence.length > 0 : false;
+    const evidenceGrounded = (ohAssessment?.evidence?.length ?? 0) > 0;
     
     // Check for false evidence
     const falseEvidence: string[] = [];

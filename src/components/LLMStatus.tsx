@@ -1,5 +1,5 @@
 import { getProviderInfo, checkBackendHealth, setLLMAvailable } from '../llm-provider';
-import { Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 export default function LLMStatus() {

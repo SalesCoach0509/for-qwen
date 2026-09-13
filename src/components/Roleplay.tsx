@@ -18,7 +18,7 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [config, setConfig] = useState<RoleplayConfig | null>(null);
-  const [conversationState, setConversationState] = useState<string>('OPENING');
+  const [, setConversationState] = useState<string>('OPENING');
   const [sessionFailed, setSessionFailed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

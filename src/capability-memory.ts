@@ -8,7 +8,7 @@
  * - History preservation (never overwrites)
  */
 
-import { CapabilityHistory, CapabilityScore, CapabilityName, CoachingIntervention, EvidenceItem } from './types';
+import { CapabilityHistory, CapabilityScore, CoachingIntervention } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -103,7 +103,6 @@ export function generateIntervention(
   patterns: string[]
 ): CoachingIntervention {
   const weightedScore = calculateWeightedScore(history);
-  const recentScores = history.scores.slice(-3).map(s => s.score);
   const trend = history.trend;
   
   // Determine intervention type based on score and patterns

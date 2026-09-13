@@ -1,10 +1,7 @@
-import { Interaction, PreparationBrief, RoleplayConfig, PracticeEvaluation, CapabilityScore, PostInteractionAnalysis, PlanVsActual, CoachingIntervention, CapabilityHistory, CapabilityName, EvidenceItem } from './types';
+import { Interaction, PreparationBrief, RoleplayConfig, PracticeEvaluation, CapabilityScore, PostInteractionAnalysis, CapabilityHistory, CapabilityName, EvidenceItem } from './types';
 import { createLLMProvider, isLLMAvailable } from './llm-provider';
-import { getRubricForLevel } from './objection-rubric';
 import { calculateWeightedScore, detectPatterns } from './capability-memory';
 import { v4 as uuidv4 } from 'uuid';
-
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ============================================================================
 // PREPARATION BRIEF
@@ -157,8 +154,8 @@ function extractContext(notes: string): string[] {
 // ROLEPLAY CONFIG
 // ============================================================================
 
-export function generateRoleplayConfig(interaction: Interaction, brief: PreparationBrief): RoleplayConfig {
-  const notes = (interaction.notes || '').toLowerCase();
+export function generateRoleplayConfig(_interaction: Interaction, brief: PreparationBrief): RoleplayConfig {
+  const notes = (_interaction.notes || '').toLowerCase();
   let role = 'Decision Maker', personality = 'Analytical and direct.', pressure: 'low' | 'medium' | 'high' = 'medium';
   
   if (notes.includes('cfo')) { role = 'CFO'; personality = 'Financially focused, skeptical.'; pressure = 'high'; }
@@ -218,44 +215,27 @@ LEVEL 1 (Score 1.0-1.8) - NOVICE:
 - Employee immediately offers discount without exploring
 - Employee makes unsupported claims ("we're the best", "our pricing is competitive")
 - NO acknowledgment of the concern
-Examples that get Level 1:
-  ✗ "Actually, our pricing is very competitive." (argues)
-  ✗ "I can offer you 15% off." (discounts immediately)
-  ✗ "They probably don't include all the features." (unsupported claim)
 
 LEVEL 2 (Score 2.0-2.8) - DEVELOPING:
 - Employee acknowledges the concern BUT doesn't ask clarifying questions
 - Employee gives generic responses without addressing the specific concern
 - Employee says "I understand" but moves to solution without exploring
-Examples that get Level 2:
-  ✓ "I understand. What timeline are you working with?" (acknowledges + basic question)
-  ✓ "I hear you. Can you tell me more?" (acknowledges + asks for more info)
-  ✗ "I understand your concern. Let me show you our features." (acknowledges but doesn't clarify)
 
 LEVEL 3 (Score 3.0-3.8) - FUNCTIONAL:
 - Employee acknowledges AND asks specific clarifying questions
 - Employee identifies specific aspects of the concern
 - Employee maintains conversational control
-Examples that get Level 3:
-  ✓ "I understand. Can you help me understand what specific aspects are worrying you? Is it duration, resources, or something else?" (acknowledges + clarifies + identifies aspects)
-  ✓ "I appreciate you sharing that. What would make this feel safer for you?" (acknowledges + asks what would reduce risk)
 
 LEVEL 4 (Score 4.0-4.5) - STRONG:
 - Employee acknowledges AND reframes around business value
 - Employee asks about cost of inaction or business impact
 - Employee preserves commercial discipline (no discount)
-Examples that get Level 4:
-  ✓ "I understand the price difference. Before we discuss pricing, what's the business impact of your current limitations? What would eliminating those issues be worth?" (acknowledges + reframes + asks about value)
-  ✓ "I appreciate the transparency. What would be the cost of migrating your team, retraining, and losing productivity gains?" (acknowledges + reframes around switching costs)
 
 LEVEL 5 (Score 4.6-5.0) - ADVANCED:
 - Employee handles multiple objections in sequence
 - Employee identifies hidden priorities or underlying concerns
 - Employee offers structural alternatives
 - Employee maintains control while building trust
-Examples that get Level 5:
-  ✓ "I understand both concerns. If we could structure this to address budget while delivering value, would that help? And what's driving the Friday deadline - is there a business event?" (handles multiple + identifies priorities + offers alternatives)
-  ✓ "That makes sense. What's been your experience presenting to her? What does she focus on? If we could build a business case showing ROI, would that help you champion this?" (explores process + offers to help + positions as ally)
 
 STEP 3: CHECK FOR BIAS
 DO NOT give high scores for:
@@ -330,7 +310,7 @@ Output JSON with this exact structure:
 
 function generateEvalMock(
   turns: { role: string; content: string }[], 
-  config: RoleplayConfig,
+  _config: RoleplayConfig,
   sessionId?: string
 ): PracticeEvaluation {
   const userTurns = turns.filter(t => t.role === 'user');
@@ -462,7 +442,8 @@ function generateEvalMock(
 export { analyzeTranscript } from './transcript-analyzer';
 
 // Legacy analyzeMock function kept for backward compatibility
-function analyzeMockLegacy(transcript: string, interaction: Interaction, brief: PreparationBrief): PostInteractionAnalysis {
+// @ts-ignore - Legacy function kept for backward compatibility
+function analyzeMockLegacy(transcript: string, interaction: Interaction, _brief: PreparationBrief): PostInteractionAnalysis {
   const lower = transcript.toLowerCase();
   const hasValue = /worth|savings|value|impact/i.test(lower);
   const hasObjection = /understand|i hear|let me address/i.test(lower);
@@ -554,7 +535,7 @@ async function getRoleplayLLM(
   return result;
 }
 
-function getRoleplayMock(userMessage: string, config: RoleplayConfig): string {
+function getRoleplayMock(userMessage: string, _config: RoleplayConfig): string {
   roleplayState.turnCount++;
   const lower = userMessage.toLowerCase();
   

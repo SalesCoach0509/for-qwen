@@ -1,5 +1,5 @@
 import { AppState } from '../types';
-import { ArrowLeft, Target, Mic, Radio, Brain, Shield, Zap, ArrowRight, Check, Clock, Circle, BarChart3, MessageSquare, Users, TrendingUp, Play, Upload, FileText } from 'lucide-react';
+import { ArrowLeft, Target, Mic, Radio, Brain, Shield, Zap, ArrowRight, Check, Clock, Circle, BarChart3, MessageSquare, Users, TrendingUp, Play, FileText } from 'lucide-react';
 
 type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
 
@@ -8,7 +8,7 @@ interface Props {
   navigate: (screen: Screen) => void;
 }
 
-export default function Roadmap({ state, navigate }: Props) {
+export default function Roadmap({ navigate }: Props) {
   return (
     <div className="min-h-screen bg-surface-50">
       <header className="bg-white border-b border-surface-100">

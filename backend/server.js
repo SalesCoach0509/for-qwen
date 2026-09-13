@@ -398,7 +398,7 @@ ${transcript}`;
   }
 });
 
-// Roleplay response - DEDICATED ENDPOINT with conversation history and state machine
+// Roleplay response
 app.post('/api/ai/roleplay/respond', async (req, res) => {
   try {
     const { userMessage, config, conversationHistory, sessionId } = req.body;
@@ -407,26 +407,22 @@ app.post('/api/ai/roleplay/respond', async (req, res) => {
     console.log('  - Session ID:', sessionId);
     console.log('  - Conversation history length:', conversationHistory?.length || 0);
     console.log('  - User message:', userMessage?.substring(0, 100) || '(opening)');
-    
-    // Validate session ID
-    if (!sessionId) {
-      return res.status(400).json({
-        error: 'INVALID_SESSION',
-        message: 'Session ID is required'
-      });
-    }
-    
-    // Build stakeholder context (NOT system prompt - use user message format to prevent leakage)
-    const stakeholderContext = `You are playing the role of ${config.stakeholderRole} in a business meeting.
+    console.log('🤖 Calling AI Gateway for roleplay...');
+
+    // Build messages for roleplay
+    const messages = [
+      {
+        role: 'system',
+        content: `You are ${config.stakeholderRole} in a business meeting roleplay.
 
 Your characteristics:
 - Role: ${config.stakeholderRole}
 - Personality: ${config.personality}
 - Pressure level: ${config.pressureLevel}
-- Your objectives: ${config.objectives?.join(', ') || 'Negotiate effectively'}
-- Concerns you might raise: ${config.likelyObjections?.join(', ') || 'Price, timing, competition'}
+- Objectives: ${config.objectives?.join(', ') || 'Negotiate effectively'}
+- Likely objections: ${config.likelyObjections?.join(', ') || 'Price, timing, competition'}
 - Hidden priorities: ${config.hiddenPriorities?.join(', ') || 'None specified'}
-- Constraints: ${config.commercialConstraints || 'Budget constraints'}
+- Commercial constraints: ${config.commercialConstraints || 'Budget constraints'}
 - Desired outcome: ${config.desiredOutcome || 'Reach agreement'}
 
 IMPORTANT RULES:
@@ -438,38 +434,15 @@ IMPORTANT RULES:
 - If asked a question, answer as the stakeholder would
 - If something is irrelevant or hostile, react naturally
 
-CRITICAL: Your response must contain ONLY what ${config.stakeholderRole} would naturally say. Do not include any internal reasoning, instructions, or meta-commentary.`;
+CRITICAL: Your response must contain ONLY what ${config.stakeholderRole} would naturally say. Do not include any internal reasoning, instructions, or meta-commentary.`
+      },
+      ...conversationHistory,
+      { role: 'user', content: userMessage || 'Start the conversation by introducing yourself and the meeting purpose.' }
+    ];
 
-    // Build conversation messages for AI Gateway (OpenAI-compatible format)
-    const messages = [];
-    
-    // Add stakeholder context as system message
-    messages.push({
-      role: 'system',
-      content: stakeholderContext
-    });
-    
-    // Add conversation history
-    if (conversationHistory && conversationHistory.length > 0) {
-      for (const turn of conversationHistory) {
-        messages.push({
-          role: turn.role === 'ai' ? 'assistant' : 'user',
-          content: turn.content
-        });
-      }
-    }
-    
-    // Add current user message (or opening prompt)
-    const currentMessage = userMessage || 'Start the conversation by introducing yourself and the meeting purpose.';
-    messages.push({
-      role: 'user',
-      content: currentMessage
-    });
-
-    console.log('🤖 Calling AI Gateway for roleplay...');
     const result = await aiGateway.generate(messages, {
       temperature: 0.8,
-      maxTokens: 500,
+      maxTokens: 500
     });
 
     // Check for capability error
@@ -481,75 +454,52 @@ CRITICAL: Your response must contain ONLY what ${config.stakeholderRole} would n
       });
     }
 
-    let text = result.content;
-    
-    console.log('✅ Roleplay response generated, length:', text.length);
-    
-    // CRITICAL: Validate and clean response to prevent prompt leakage
-    text = validateAndCleanRoleplayResponse(text, config.stakeholderRole);
-    
+    console.log('✅ Roleplay response generated');
+
+    // Clean response to prevent prompt leakage
+    let cleanedResponse = validateAndCleanRoleplayResponse(result.content, config.stakeholderRole);
+
     // Determine conversation state
-    const conversationState = determineConversationState(conversationHistory, text, userMessage);
-    
-    // Get gateway info for metadata
-    const gatewayInfo = aiGateway.getInfo();
-    
-    // Return response with metadata for verification
-    res.json({ 
-      response: text,
+    const conversationState = determineConversationState(conversationHistory, cleanedResponse, userMessage);
+
+    res.json({
+      response: cleanedResponse,
       sessionId: sessionId,
-      conversationState: conversationState,
-      aiMeta: {
-        mode: 'live',
-        provider: gatewayInfo.provider,
-        model: gatewayInfo.model,
-        operation: 'roleplay_response',
-        conversationLength: conversationHistory?.length || 0,
-        timestamp: new Date().toISOString()
-      }
+      conversationState: conversationState
     });
   } catch (error) {
     console.error('❌ Roleplay error:', error);
     console.error('❌ Error details:', error.message);
     res.status(500).json({ 
       error: 'LIVE_AI_ERROR',
-      message: 'Failed to generate roleplay response with AI Gateway',
-      details: error.message,
-      name: error.name
+      message: error.message,
+      details: error.message 
     });
   }
 });
 
-// Legacy roleplay endpoint (for backward compatibility)
-app.post('/api/ai/roleplay', async (req, res) => {
-  // Redirect to new endpoint
-  req.url = '/api/ai/roleplay/respond';
-  app.handle(req, res);
-});
-
-// Serve static files from the React app build
-app.use(express.static(path.join(__dirname, '../dist')));
-
-// Handle all non-API routes by serving index.html (for React Router)
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
+// Serve static files in production
+if (process.env.NODE_ENV === 'production') {
+  const distPath = path.join(__dirname, '../dist');
+  app.use(express.static(distPath));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
 
 app.listen(PORT, '0.0.0.0', () => {
-  const gatewayInfo = aiGateway.getInfo();
-  
+  const info = aiGateway.getInfo();
   console.log('='.repeat(60));
   console.log('🚀 PERFORMANCE COACH BACKEND STARTING');
   console.log('='.repeat(60));
-  console.log(`📡 Provider: ${gatewayInfo.provider}`);
-  console.log(`🤖 Model: ${gatewayInfo.model}`);
-  console.log(`🎯 Capabilities: ${gatewayInfo.capabilities.join(', ')}`);
-  console.log(`📏 Max Context: ${gatewayInfo.maxContext.toLocaleString()} tokens`);
-  console.log(`🔑 API Key: ${gatewayInfo.initialized ? '✅ SET' : '❌ NOT SET'}`);
+  console.log(`📡 Provider: ${info.provider}`);
+  console.log(`🤖 Model: ${info.model}`);
+  console.log(`🎯 Capabilities: ${info.capabilities.join(', ')}`);
+  console.log(`📏 Max Context: ${info.maxContext.toLocaleString()} tokens`);
+  console.log(`🔑 API Key: ${info.apiKeySet ? '✅ SET' : '❌ NOT SET'}`);
   console.log(`🔒 Mode: LIVE AI (API key secured server-side)`);
   console.log(`🌐 Port: ${PORT}`);
-  console.log(`📁 Serving frontend from: ${path.join(__dirname, '../dist')}`);
-  console.log(`🔍 Diagnostic endpoint: http://localhost:${PORT}/api/diagnostic`);
   console.log('='.repeat(60));
   console.log('✅ Backend ready to accept requests');
   console.log('='.repeat(60));

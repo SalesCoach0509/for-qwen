@@ -7,7 +7,7 @@
  * Generates Plan vs Actual items with impact reasoning
  */
 
-import { Interaction, PreparationBrief, PostInteractionAnalysis, PlanVsActual, CapabilityScore, CoachingIntervention, EvidenceItem, CapabilityName } from './types';
+import { Interaction, PreparationBrief, PostInteractionAnalysis, PlanVsActual, CoachingIntervention, EvidenceItem, CapabilityName } from './types';
 import { createLLMProvider, isLLMAvailable } from './llm-provider';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -193,7 +193,7 @@ export function extractBehaviors(segments: TranscriptSegment[]): ExtractedBehavi
  * Generate Plan vs Actual comparison
  */
 export function generatePlanVsActual(
-  brief: PreparationBrief,
+  _brief: PreparationBrief,
   behaviors: ExtractedBehavior[],
   segments: TranscriptSegment[]
 ): PlanVsActual[] {
@@ -221,7 +221,6 @@ export function generatePlanVsActual(
   }
   
   // Check: Did they explore objections?
-  const acknowledgments = behaviors.filter(b => b.type === 'acknowledgment');
   const clarifications = behaviors.filter(b => b.type === 'clarification');
   const objections = segments.filter(s => s.type === 'objection');
   
@@ -303,8 +302,8 @@ async function analyzeWithLLM(
   transcript: string,
   interaction: Interaction,
   brief: PreparationBrief,
-  segments: TranscriptSegment[],
-  behaviors: ExtractedBehavior[]
+  _segments: TranscriptSegment[],
+  _behaviors: ExtractedBehavior[]
 ): Promise<PostInteractionAnalysis> {
   const provider = createLLMProvider();
   
@@ -328,30 +327,25 @@ LEVEL 1 (Score 1.0-1.8) - NOVICE:
 - Employee argues, dismisses, or ignores concerns
 - Employee immediately offers discount without exploring
 - NO acknowledgment of concerns
-Score 1.0-1.8 if you see: arguing, dismissing, immediate discounting
 
 LEVEL 2 (Score 2.0-2.8) - DEVELOPING:
 - Employee acknowledges BUT doesn't ask clarifying questions
 - Employee gives generic responses
-Score 2.0-2.8 if you see: "I understand" but no clarifying questions
 
 LEVEL 3 (Score 3.0-3.8) - FUNCTIONAL:
 - Employee acknowledges AND asks specific clarifying questions
 - Employee identifies specific aspects of concerns
-Score 3.0-3.8 if you see: acknowledgment + specific clarifying questions
 
 LEVEL 4 (Score 4.0-4.5) - STRONG:
 - Employee acknowledges AND reframes around business value
 - Employee asks about cost of inaction or business impact
 - Employee does NOT offer discounts
-Score 4.0-4.5 if you see: acknowledgment + value reframing + no discount
 
 LEVEL 5 (Score 4.6-5.0) - ADVANCED:
 - Employee handles multiple objections
 - Employee identifies hidden priorities
 - Employee offers structural alternatives
 - Employee secures clear next steps
-Score 4.6-5.0 if you see: multiple objections handled + hidden priorities + alternatives + next steps
 
 STEP 3: CHECK FOR BIAS
 DO NOT give high scores for:
@@ -457,7 +451,7 @@ Analyze the interaction following the rubric strictly. Every piece of evidence M
 }
 
 function analyzeWithRules(
-  transcript: string,
+  _transcript: string,
   interaction: Interaction,
   brief: PreparationBrief,
   segments: TranscriptSegment[],

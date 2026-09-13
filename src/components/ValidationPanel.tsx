@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { runFullValidation } from '../test/validation-harness';
 
 export default function ValidationPanel() {

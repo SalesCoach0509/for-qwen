@@ -10,8 +10,7 @@
  * This is DEMONSTRATION data, not real user data.
  */
 
-import { PracticeSession, PracticeTurn, PracticeEvaluation, CapabilityScore } from '../types';
-import { v4 as uuidv4 } from 'uuid';
+import { PracticeSession, PracticeEvaluation } from '../types';
 
 // ============================================================================
 // BEFORE: Poor Objection Handling
