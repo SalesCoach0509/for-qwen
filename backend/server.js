@@ -65,6 +65,64 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Diagnostic endpoint - comprehensive system status
+app.get('/api/diagnostic', (req, res) => {
+  const gatewayInfo = aiGateway.getInfo();
+  res.json({
+    mode: 'live',
+    provider: gatewayInfo.provider,
+    model: gatewayInfo.model,
+    backendStatus: 'connected',
+    gatewayStatus: gatewayInfo.initialized ? 'ready' : 'error',
+    providerStatus: gatewayInfo.initialized ? 'configured' : 'not_configured',
+    capabilities: gatewayInfo.capabilities,
+    maxContext: gatewayInfo.maxContext,
+    lastOperation: null,
+    lastOperationStatus: null,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Live LLM test endpoint - tests actual provider connection
+app.post('/api/diagnostic/llm-test', async (req, res) => {
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+  const startTime = Date.now();
+  
+  try {
+    // Send a minimal test request through the gateway
+    const testResult = await aiGateway.generate(
+      [{ role: 'user', content: 'Say "OK"' }],
+      { maxTokens: 10, jsonMode: false }
+    );
+    
+    const latency = Date.now() - startTime;
+    
+    res.json({
+      success: true,
+      provider: aiGateway.getInfo().provider,
+      model: aiGateway.getInfo().model,
+      requestId: requestId,
+      latency: latency,
+      structuredOutput: false,
+      responsePreview: testResult.content?.substring(0, 50) || '',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    const latency = Date.now() - startTime;
+    
+    res.json({
+      success: false,
+      provider: aiGateway.getInfo().provider,
+      model: aiGateway.getInfo().model,
+      requestId: requestId,
+      latency: latency,
+      structuredOutput: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Helper function to validate and clean roleplay responses
 function validateAndCleanRoleplayResponse(text, stakeholderRole) {
   // Remove common prompt leakage patterns

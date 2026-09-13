@@ -44,7 +44,7 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <button
             onClick={() => navigate('create')}
             className="bg-blue-600 text-white p-6 rounded-xl hover:bg-blue-700 transition-colors text-left"
@@ -59,6 +59,14 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-2">View Capabilities</h3>
             <p className="text-gray-600 text-sm">Track your capability development over time</p>
+          </button>
+
+          <button
+            onClick={() => navigate('validation')}
+            className="bg-white p-6 rounded-xl border border-gray-200 hover:border-blue-300 transition-colors text-left"
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Validation</h3>
+            <p className="text-gray-600 text-sm">Run system validation tests</p>
           </button>
 
           <button

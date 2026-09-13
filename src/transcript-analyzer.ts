@@ -288,13 +288,12 @@ export async function analyzeTranscript(
   const behaviors = extractBehaviors(segments);
   
   if (isLLMAvailable()) {
-    try {
-      return await analyzeWithLLM(transcript, interaction, brief, segments, behaviors);
-    } catch (e) {
-      console.error('LLM analysis failed:', e);
-    }
+    // CRITICAL: In LIVE MODE, do NOT silently fall back to rules
+    // If LLM call fails, throw error so user knows something went wrong
+    return await analyzeWithLLM(transcript, interaction, brief, segments, behaviors);
   }
   
+  // Only use rules in DEMO MODE
   return analyzeWithRules(transcript, interaction, brief, segments, behaviors);
 }
 

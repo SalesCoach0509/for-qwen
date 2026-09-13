@@ -13,9 +13,11 @@ export async function generateBrief(
 ): Promise<PreparationBrief> {
   // Check at runtime if backend is available
   if (isLLMAvailable()) {
-    try { return await generateBriefWithLLM(interaction, capabilityHistory); } 
-    catch (e) { console.error('LLM brief failed:', e); }
+    // CRITICAL: In LIVE MODE, do NOT silently fall back to mock
+    // If LLM call fails, throw error so user knows something went wrong
+    return await generateBriefWithLLM(interaction, capabilityHistory);
   }
+  // Only use mock in DEMO MODE
   return generateBriefMock(interaction, capabilityHistory);
 }
 
@@ -182,9 +184,11 @@ export async function generatePracticeEvaluation(
 ): Promise<PracticeEvaluation> {
   // Check at runtime if backend is available
   if (isLLMAvailable()) {
-    try { return await generateEvalWithLLM(turns, config, sessionId); }
-    catch (e) { console.error('LLM eval failed:', e); }
+    // CRITICAL: In LIVE MODE, do NOT silently fall back to mock
+    // If LLM call fails, throw error so user knows something went wrong
+    return await generateEvalWithLLM(turns, config, sessionId);
   }
+  // Only use mock in DEMO MODE
   return generateEvalMock(turns, config, sessionId);
 }
 
