@@ -303,13 +303,18 @@ app.post('/api/ai/chat', async (req, res) => {
     console.error('❌ Error details:', error.message);
     console.error('❌ Error stack:', error.stack);
     
-    res.status(500).json({ 
+    // Ensure error is properly serialized
+    const errorResponse = {
       error: 'LIVE_AI_ERROR',
-      message: 'Failed to generate response with AI Gateway',
-      details: error.message,
-      name: error.name,
+      message: error.message || 'Unknown error occurred',
+      details: error.message || 'Unknown error occurred',
+      name: error.name || 'Error',
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    };
+    
+    console.error('❌ Returning error response:', JSON.stringify(errorResponse));
+    
+    res.status(500).json(errorResponse);
   }
 });
 
@@ -361,11 +366,21 @@ Employee: Objection Handling 2.7/5, Commercial Discipline 2.6/5, Discovery 2.8/5
     res.json(JSON.parse(result.content));
   } catch (error) {
     console.error('Prepare error:', error);
-    res.status(500).json({ 
+    console.error('Prepare error details:', error.message);
+    console.error('Prepare error stack:', error.stack);
+    
+    // Ensure error is properly serialized
+    const errorResponse = {
       error: 'LIVE_AI_ERROR',
-      message: 'Failed to generate brief with AI Gateway',
-      details: error.message 
-    });
+      message: error.message || 'Failed to generate brief with AI Gateway',
+      details: error.message || 'Unknown error occurred',
+      name: error.name || 'Error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
+    
+    console.error('Returning error response:', JSON.stringify(errorResponse));
+    
+    res.status(500).json(errorResponse);
   }
 });
 
@@ -409,11 +424,21 @@ ${conversation}`;
     res.json(JSON.parse(result.content));
   } catch (error) {
     console.error('Evaluate error:', error);
-    res.status(500).json({ 
+    console.error('Evaluate error details:', error.message);
+    console.error('Evaluate error stack:', error.stack);
+    
+    // Ensure error is properly serialized
+    const errorResponse = {
       error: 'LIVE_AI_ERROR',
-      message: 'Failed to evaluate practice with AI Gateway',
-      details: error.message 
-    });
+      message: error.message || 'Failed to evaluate practice with AI Gateway',
+      details: error.message || 'Unknown error occurred',
+      name: error.name || 'Error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
+    
+    console.error('Returning error response:', JSON.stringify(errorResponse));
+    
+    res.status(500).json(errorResponse);
   }
 });
 
@@ -448,11 +473,21 @@ ${transcript}`;
     res.json(JSON.parse(result.content));
   } catch (error) {
     console.error('Analyze error:', error);
-    res.status(500).json({ 
+    console.error('Analyze error details:', error.message);
+    console.error('Analyze error stack:', error.stack);
+    
+    // Ensure error is properly serialized
+    const errorResponse = {
       error: 'LIVE_AI_ERROR',
-      message: 'Failed to analyze transcript with AI Gateway',
-      details: error.message 
-    });
+      message: error.message || 'Failed to analyze transcript with AI Gateway',
+      details: error.message || 'Unknown error occurred',
+      name: error.name || 'Error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
+    
+    console.error('Returning error response:', JSON.stringify(errorResponse));
+    
+    res.status(500).json(errorResponse);
   }
 });
 
@@ -528,11 +563,20 @@ CRITICAL: Your response must contain ONLY what ${config.stakeholderRole} would n
   } catch (error) {
     console.error('❌ Roleplay error:', error);
     console.error('❌ Error details:', error.message);
-    res.status(500).json({ 
+    console.error('❌ Error stack:', error.stack);
+    
+    // Ensure error is properly serialized
+    const errorResponse = {
       error: 'LIVE_AI_ERROR',
-      message: error.message,
-      details: error.message 
-    });
+      message: error.message || 'Unknown error occurred',
+      details: error.message || 'Unknown error occurred',
+      name: error.name || 'Error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
+    
+    console.error('❌ Returning error response:', JSON.stringify(errorResponse));
+    
+    res.status(500).json(errorResponse);
   }
 });
 

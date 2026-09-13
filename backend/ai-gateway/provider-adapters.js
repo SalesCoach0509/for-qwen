@@ -210,7 +210,22 @@ export class GeminiAdapter extends BaseProviderAdapter {
     } catch (error) {
       const latency = Date.now() - startTime;
       console.error(`✗ Gemini call failed after ${latency}ms:`, error);
-      throw error;
+      
+      // Ensure error is properly serialized with all details
+      const errorMessage = error.message || 'Unknown error';
+      const errorName = error.name || 'Error';
+      const errorDetails = error.details || error.cause || {};
+      
+      console.error(`✗ Error name: ${errorName}`);
+      console.error(`✗ Error message: ${errorMessage}`);
+      console.error(`✗ Error details:`, errorDetails);
+      
+      // Create a new error with all details preserved
+      const wrappedError = new Error(`${errorName}: ${errorMessage}`);
+      wrappedError.details = errorDetails;
+      wrappedError.originalError = error;
+      
+      throw wrappedError;
     }
   }
 }
