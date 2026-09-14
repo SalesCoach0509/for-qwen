@@ -210,6 +210,18 @@ app.get('/api/diagnostic', async (req, res) => {
   
   const diagnostic = {
     timestamp: new Date().toISOString(),
+    // Top-level fields for frontend compatibility
+    mode: 'live',
+    provider: gatewayInfo.provider,
+    model: gatewayInfo.model,
+    backendStatus: 'connected',
+    gatewayStatus: gatewayInfo.initialized ? 'ready' : 'error',
+    providerStatus: providerStatus,
+    capabilities: gatewayInfo.capabilities,
+    maxContext: gatewayInfo.maxContext,
+    lastCallStatus: lastProviderCallStatus,
+    lastCallTimestamp: lastProviderCallTimestamp,
+    // Nested structure for detailed diagnostics
     environment: {
       NODE_ENV: process.env.NODE_ENV,
       PORT: process.env.PORT,
@@ -225,9 +237,6 @@ app.get('/api/diagnostic', async (req, res) => {
       capabilities: gatewayInfo.capabilities,
       maxContext: gatewayInfo.maxContext,
     },
-    providerStatus: providerStatus,
-    lastCallStatus: lastProviderCallStatus,
-    lastCallTimestamp: lastProviderCallTimestamp,
     tests: {}
   };
 
