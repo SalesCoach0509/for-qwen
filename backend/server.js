@@ -72,31 +72,6 @@ let lastProviderStatus = 'READY';
 let lastProviderCallStatus = null;
 let lastProviderCallTimestamp = null;
 
-// Diagnostic endpoint - comprehensive system status
-app.get('/api/diagnostic', (req, res) => {
-  const gatewayInfo = aiGateway.getInfo();
-  
-  // Determine provider status
-  let providerStatus = 'NOT_CONFIGURED';
-  if (gatewayInfo.initialized) {
-    providerStatus = lastProviderStatus;
-  }
-  
-  res.json({
-    mode: 'live',
-    provider: gatewayInfo.provider,
-    model: gatewayInfo.model,
-    backendStatus: 'connected',
-    gatewayStatus: gatewayInfo.initialized ? 'ready' : 'error',
-    providerStatus: providerStatus,
-    capabilities: gatewayInfo.capabilities,
-    maxContext: gatewayInfo.maxContext,
-    lastCallStatus: lastProviderCallStatus,
-    lastCallTimestamp: lastProviderCallTimestamp,
-    timestamp: new Date().toISOString()
-  });
-});
-
 // Live LLM test endpoint - tests actual provider connection
 app.post('/api/diagnostic/llm-test', async (req, res) => {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -227,6 +202,12 @@ function determineConversationState(history, lastResponse, lastUserMessage) {
 app.get('/api/diagnostic', async (req, res) => {
   const gatewayInfo = aiGateway.getInfo();
   
+  // Determine provider status
+  let providerStatus = 'NOT_CONFIGURED';
+  if (gatewayInfo.initialized) {
+    providerStatus = lastProviderStatus;
+  }
+  
   const diagnostic = {
     timestamp: new Date().toISOString(),
     environment: {
@@ -244,6 +225,9 @@ app.get('/api/diagnostic', async (req, res) => {
       capabilities: gatewayInfo.capabilities,
       maxContext: gatewayInfo.maxContext,
     },
+    providerStatus: providerStatus,
+    lastCallStatus: lastProviderCallStatus,
+    lastCallTimestamp: lastProviderCallTimestamp,
     tests: {}
   };
 
