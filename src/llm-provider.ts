@@ -73,9 +73,12 @@ class BackendProxyProvider implements LLMProvider {
       const data = await response.json();
       
       console.log(`✓ Backend ${this.endpoint} responded in ${latency}ms`);
+      console.log(`  Response structure:`, Object.keys(data));
       
+      // Backend returns { content: string, usage: object }
+      // Extract the content field, don't stringify the entire object
       return {
-        content: typeof data === 'string' ? data : JSON.stringify(data),
+        content: data.content,
         usage: data.usage,
       };
     } catch (error) {

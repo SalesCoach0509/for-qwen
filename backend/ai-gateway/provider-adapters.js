@@ -66,69 +66,108 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
     }
 
     const startTime = Date.now();
+    const maxRetries = 3;
+    const baseDelayMs = 1000;
 
-    try {
-      const requestBody = {
-        model: this.model,
-        messages: messages,
-        temperature: options.temperature ?? 0.7,
-        max_tokens: options.maxTokens ?? 2000,
-      };
+    // Retry loop for transient errors
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const requestBody = {
+          model: this.model,
+          messages: messages,
+          temperature: options.temperature ?? 0.7,
+          max_tokens: options.maxTokens ?? 2000,
+        };
 
-      // Add JSON mode if requested
-      if (options.jsonMode) {
-        requestBody.response_format = { type: 'json_object' };
+        // Add JSON mode if requested
+        if (options.jsonMode) {
+          requestBody.response_format = { type: 'json_object' };
+        }
+
+        // Add streaming if requested
+        if (options.stream) {
+          requestBody.stream = true;
+        }
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+
+        const response = await fetch(`${this.baseUrl}/chat/completions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        const latency = Date.now() - startTime;
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+          const errorMessage = JSON.stringify(error);
+          
+          // Check if this is a transient error (503, 429)
+          const isTransient = 
+            response.status === 503 ||
+            response.status === 429 ||
+            errorMessage.includes('503') ||
+            errorMessage.includes('429') ||
+            errorMessage.includes('timeout') ||
+            errorMessage.includes('TEMPORARILY_UNAVAILABLE');
+          
+          if (!isTransient || attempt === maxRetries) {
+            throw new Error(`${this.name} API error (${latency}ms): ${errorMessage}`);
+          }
+          
+          // Transient error - retry with exponential backoff
+          const delay = baseDelayMs * Math.pow(2, attempt - 1);
+          console.log(`⏳ ${this.name} transient error ${response.status} (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        const data = await response.json();
+
+        console.log(`✓ ${this.name} ${this.model} responded in ${latency}ms (attempt ${attempt})`);
+
+        return {
+          content: data.choices[0]?.message?.content || '',
+          usage: data.usage ? {
+            promptTokens: data.usage.prompt_tokens,
+            completionTokens: data.usage.completion_tokens,
+            totalTokens: data.usage.total_tokens,
+          } : undefined,
+        };
+      } catch (error) {
+        const latency = Date.now() - startTime;
+        
+        if (error.name === 'AbortError') {
+          console.error(`✗ ${this.name} request timed out after 60 seconds`);
+          throw new Error(`${this.name} API request timed out after 60 seconds. The model may be overloaded or slow to respond.`);
+        }
+        
+        // Check if this is a transient error
+        const errorMessage = error.message || '';
+        const isTransient = 
+          errorMessage.includes('503') ||
+          errorMessage.includes('429') ||
+          errorMessage.includes('timeout') ||
+          errorMessage.includes('TEMPORARILY_UNAVAILABLE');
+        
+        if (!isTransient || attempt === maxRetries) {
+          console.error(`✗ ${this.name} call failed after ${latency}ms (attempt ${attempt}):`, error);
+          throw error;
+        }
+        
+        // Transient error - retry with exponential backoff
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        console.log(`⏳ ${this.name} transient error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      // Add streaming if requested
-      if (options.stream) {
-        requestBody.stream = true;
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(requestBody),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      const latency = Date.now() - startTime;
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`${this.name} API error (${latency}ms): ${JSON.stringify(error)}`);
-      }
-
-      const data = await response.json();
-
-      console.log(`✓ ${this.name} ${this.model} responded in ${latency}ms`);
-
-      return {
-        content: data.choices[0]?.message?.content || '',
-        usage: data.usage ? {
-          promptTokens: data.usage.prompt_tokens,
-          completionTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens,
-        } : undefined,
-      };
-    } catch (error) {
-      const latency = Date.now() - startTime;
-      
-      if (error.name === 'AbortError') {
-        console.error(`✗ ${this.name} request timed out after 60 seconds`);
-        throw new Error(`${this.name} API request timed out after 60 seconds. The model may be overloaded or slow to respond.`);
-      }
-      
-      console.error(`✗ ${this.name} call failed after ${latency}ms:`, error);
-      throw error;
     }
   }
 }
@@ -171,61 +210,83 @@ export class GeminiAdapter extends BaseProviderAdapter {
     await this.initialize();
 
     const startTime = Date.now();
+    const maxRetries = 3;
+    const baseDelayMs = 1000;
 
-    try {
-      // Convert OpenAI-style messages to Gemini format
-      const contents = messages.map(msg => ({
-        role: msg.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: msg.content }],
-      }));
+    // Retry loop for transient errors
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Convert OpenAI-style messages to Gemini format
+        const contents = messages.map(msg => ({
+          role: msg.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: msg.content }],
+        }));
 
-      const generationConfig = {
-        temperature: options.temperature ?? 0.7,
-        maxOutputTokens: options.maxTokens ?? 2000,
-      };
+        const generationConfig = {
+          temperature: options.temperature ?? 0.7,
+          maxOutputTokens: options.maxTokens ?? 2000,
+        };
 
-      if (options.jsonMode) {
-        generationConfig.responseMimeType = 'application/json';
+        if (options.jsonMode) {
+          generationConfig.responseMimeType = 'application/json';
+        }
+
+        const result = await this.modelInstance.generateContent({
+          contents,
+          generationConfig,
+        });
+
+        const response = await result.response;
+        const text = response.text();
+        const latency = Date.now() - startTime;
+
+        console.log(`✓ Gemini ${this.model} responded in ${latency}ms (attempt ${attempt})`);
+
+        return {
+          content: text,
+          usage: response.usageMetadata ? {
+            promptTokens: response.usageMetadata.promptTokenCount || 0,
+            completionTokens: response.usageMetadata.candidatesTokenCount || 0,
+            totalTokens: response.usageMetadata.totalTokenCount || 0,
+          } : undefined,
+        };
+      } catch (error) {
+        const latency = Date.now() - startTime;
+        const errorMessage = error.message || 'Unknown error';
+        
+        // Check if this is a transient error (503, 429, timeout)
+        const isTransient = 
+          errorMessage.includes('503') ||
+          errorMessage.includes('429') ||
+          errorMessage.includes('timeout') ||
+          errorMessage.includes('TEMPORARILY_UNAVAILABLE') ||
+          errorMessage.includes('high demand');
+        
+        if (!isTransient || attempt === maxRetries) {
+          // Not transient or max retries reached - throw error
+          console.error(`✗ Gemini call failed after ${latency}ms (attempt ${attempt}):`, error);
+          
+          // Ensure error is properly serialized with all details
+          const errorName = error.name || 'Error';
+          const errorDetails = error.details || error.cause || {};
+          
+          console.error(`✗ Error name: ${errorName}`);
+          console.error(`✗ Error message: ${errorMessage}`);
+          console.error(`✗ Error details:`, errorDetails);
+          
+          // Create a new error with all details preserved
+          const wrappedError = new Error(`${errorName}: ${errorMessage}`);
+          wrappedError.details = errorDetails;
+          wrappedError.originalError = error;
+          
+          throw wrappedError;
+        }
+        
+        // Transient error - retry with exponential backoff
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        console.log(`⏳ Gemini transient error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
-
-      const result = await this.modelInstance.generateContent({
-        contents,
-        generationConfig,
-      });
-
-      const response = await result.response;
-      const text = response.text();
-      const latency = Date.now() - startTime;
-
-      console.log(`✓ Gemini ${this.model} responded in ${latency}ms`);
-
-      return {
-        content: text,
-        usage: response.usageMetadata ? {
-          promptTokens: response.usageMetadata.promptTokenCount || 0,
-          completionTokens: response.usageMetadata.candidatesTokenCount || 0,
-          totalTokens: response.usageMetadata.totalTokenCount || 0,
-        } : undefined,
-      };
-    } catch (error) {
-      const latency = Date.now() - startTime;
-      console.error(`✗ Gemini call failed after ${latency}ms:`, error);
-      
-      // Ensure error is properly serialized with all details
-      const errorMessage = error.message || 'Unknown error';
-      const errorName = error.name || 'Error';
-      const errorDetails = error.details || error.cause || {};
-      
-      console.error(`✗ Error name: ${errorName}`);
-      console.error(`✗ Error message: ${errorMessage}`);
-      console.error(`✗ Error details:`, errorDetails);
-      
-      // Create a new error with all details preserved
-      const wrappedError = new Error(`${errorName}: ${errorMessage}`);
-      wrappedError.details = errorDetails;
-      wrappedError.originalError = error;
-      
-      throw wrappedError;
     }
   }
 }

@@ -45,43 +45,9 @@ async function getBackendDiagnostic(): Promise<BackendDiagnostic> {
 }
 
 // ============================================================================
-// RETRY LOGIC FOR TRANSIENT ERRORS
+// NOTE: Retry logic is handled by the backend provider adapters
+// Validation harness calls operations directly and observes results
 // ============================================================================
-
-async function withRetry<T>(
-  operation: () => Promise<T>,
-  maxRetries: number = 3,
-  baseDelayMs: number = 1000
-): Promise<T> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error as Error;
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      
-      // Check if this is a transient error (503, 429, timeout)
-      const isTransient = 
-        errorMessage.includes('503') ||
-        errorMessage.includes('429') ||
-        errorMessage.includes('timeout') ||
-        errorMessage.includes('TEMPORARILY_UNAVAILABLE');
-      
-      if (!isTransient || attempt === maxRetries) {
-        throw error;
-      }
-      
-      // Exponential backoff
-      const delay = baseDelayMs * Math.pow(2, attempt - 1);
-      console.log(`⏳ Retry ${attempt}/${maxRetries} after ${delay}ms...`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  
-  throw lastError || new Error('Retry failed');
-}
 
 // ============================================================================
 // GATE 1: LLM VERIFICATION
@@ -168,7 +134,7 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   try {
     result.operationsTested.push('generateBrief');
     result.structuredOutputTotal++;
-    const brief = await withRetry(() => generateBrief(testInteraction));
+    const brief = await generateBrief(testInteraction);
     
     if (brief && brief.objective && brief.stakeholderPriorities.length > 0) {
       result.structuredOutputSuccess++;
@@ -196,13 +162,13 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   try {
     result.operationsTested.push('generatePracticeEvaluation');
     result.structuredOutputTotal++;
-    const evaluation = await withRetry(() => generatePracticeEvaluation(
+    const evaluation = await generatePracticeEvaluation(
       [
         { role: 'ai', content: 'Your price is too high.' },
         { role: 'user', content: 'I understand. Can you help me understand what\'s driving that concern?' },
       ],
       { stakeholderRole: 'CFO', personality: 'Direct', pressureLevel: 'high', objectives: [], likelyObjections: [], commercialConstraints: '', hiddenPriorities: [], desiredOutcome: '' }
-    ));
+    );
     
     if (evaluation && evaluation.capabilityScores.length > 0) {
       result.structuredOutputSuccess++;
@@ -230,11 +196,11 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   try {
     result.operationsTested.push('analyzeTranscript');
     result.structuredOutputTotal++;
-    const analysis = await withRetry(() => analyzeTranscript(
+    const analysis = await analyzeTranscript(
       'Buyer: Your price is too high.\nEmployee: I understand. Can you help me understand what\'s driving that concern?',
       testInteraction,
       { id: 'test', interactionId: 'test', objective: '', stakeholderPriorities: [], relevantContext: [], commercialGuidance: { discountLimits: '', relevantPackage: '', tradeOffs: [], escalationItems: [], note: '' }, likelyObjections: [], recommendedQuestions: [], recommendedPositioning: [], thingsToAvoid: [], personalCoachingFocus: '', practiceRecommendation: '', generatedAt: '' }
-    ));
+    );
     
     if (analysis && analysis.planVsActual.length > 0) {
       result.structuredOutputSuccess++;
