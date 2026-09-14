@@ -52,7 +52,9 @@ try {
 
 // Health check
 app.get('/api/health', (req, res) => {
+  console.log('🔍 Health check endpoint called');
   const gatewayInfo = aiGateway.getInfo();
+  console.log('🔍 Gateway info:', gatewayInfo);
   res.json({ 
     status: 'ok', 
     provider: gatewayInfo.provider,
@@ -65,20 +67,32 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Track provider status globally
+let lastProviderStatus = 'READY';
+let lastProviderCallStatus = null;
+let lastProviderCallTimestamp = null;
+
 // Diagnostic endpoint - comprehensive system status
 app.get('/api/diagnostic', (req, res) => {
   const gatewayInfo = aiGateway.getInfo();
+  
+  // Determine provider status
+  let providerStatus = 'NOT_CONFIGURED';
+  if (gatewayInfo.initialized) {
+    providerStatus = lastProviderStatus;
+  }
+  
   res.json({
     mode: 'live',
     provider: gatewayInfo.provider,
     model: gatewayInfo.model,
     backendStatus: 'connected',
     gatewayStatus: gatewayInfo.initialized ? 'ready' : 'error',
-    providerStatus: gatewayInfo.initialized ? 'configured' : 'not_configured',
+    providerStatus: providerStatus,
     capabilities: gatewayInfo.capabilities,
     maxContext: gatewayInfo.maxContext,
-    lastOperation: null,
-    lastOperationStatus: null,
+    lastCallStatus: lastProviderCallStatus,
+    lastCallTimestamp: lastProviderCallTimestamp,
     timestamp: new Date().toISOString()
   });
 });
@@ -283,6 +297,11 @@ app.post('/api/ai/chat', async (req, res) => {
       jsonMode: options?.jsonMode ?? false,
     });
 
+    // Track successful provider call
+    lastProviderStatus = 'READY';
+    lastProviderCallStatus = 'SUCCESS';
+    lastProviderCallTimestamp = new Date().toISOString();
+
     // Check for capability error
     if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
       return res.status(400).json({
@@ -302,6 +321,20 @@ app.post('/api/ai/chat', async (req, res) => {
     console.error('❌ Chat error:', error);
     console.error('❌ Error details:', error.message);
     console.error('❌ Error stack:', error.stack);
+    
+    // Track provider failure
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '503';
+    } else if (errorMessage.includes('429')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '429';
+    } else {
+      lastProviderStatus = 'ERROR';
+      lastProviderCallStatus = 'ERROR';
+    }
+    lastProviderCallTimestamp = new Date().toISOString();
     
     // Ensure error is properly serialized
     const errorResponse = {
@@ -354,6 +387,11 @@ Employee: Objection Handling 2.7/5, Commercial Discipline 2.6/5, Discovery 2.8/5
       { role: 'user', content: prompt }
     ], { jsonMode: true });
 
+    // Track successful provider call
+    lastProviderStatus = 'READY';
+    lastProviderCallStatus = 'SUCCESS';
+    lastProviderCallTimestamp = new Date().toISOString();
+
     // Check for capability error
     if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
       return res.status(400).json({
@@ -368,6 +406,20 @@ Employee: Objection Handling 2.7/5, Commercial Discipline 2.6/5, Discovery 2.8/5
     console.error('Prepare error:', error);
     console.error('Prepare error details:', error.message);
     console.error('Prepare error stack:', error.stack);
+    
+    // Track provider failure
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '503';
+    } else if (errorMessage.includes('429')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '429';
+    } else {
+      lastProviderStatus = 'ERROR';
+      lastProviderCallStatus = 'ERROR';
+    }
+    lastProviderCallTimestamp = new Date().toISOString();
     
     // Ensure error is properly serialized
     const errorResponse = {
@@ -412,6 +464,11 @@ ${conversation}`;
       { role: 'user', content: prompt }
     ], { jsonMode: true });
 
+    // Track successful provider call
+    lastProviderStatus = 'READY';
+    lastProviderCallStatus = 'SUCCESS';
+    lastProviderCallTimestamp = new Date().toISOString();
+
     // Check for capability error
     if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
       return res.status(400).json({
@@ -426,6 +483,20 @@ ${conversation}`;
     console.error('Evaluate error:', error);
     console.error('Evaluate error details:', error.message);
     console.error('Evaluate error stack:', error.stack);
+    
+    // Track provider failure
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '503';
+    } else if (errorMessage.includes('429')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '429';
+    } else {
+      lastProviderStatus = 'ERROR';
+      lastProviderCallStatus = 'ERROR';
+    }
+    lastProviderCallTimestamp = new Date().toISOString();
     
     // Ensure error is properly serialized
     const errorResponse = {
@@ -461,6 +532,11 @@ ${transcript}`;
       { role: 'user', content: prompt }
     ], { jsonMode: true });
 
+    // Track successful provider call
+    lastProviderStatus = 'READY';
+    lastProviderCallStatus = 'SUCCESS';
+    lastProviderCallTimestamp = new Date().toISOString();
+
     // Check for capability error
     if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
       return res.status(400).json({
@@ -475,6 +551,20 @@ ${transcript}`;
     console.error('Analyze error:', error);
     console.error('Analyze error details:', error.message);
     console.error('Analyze error stack:', error.stack);
+    
+    // Track provider failure
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '503';
+    } else if (errorMessage.includes('429')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '429';
+    } else {
+      lastProviderStatus = 'ERROR';
+      lastProviderCallStatus = 'ERROR';
+    }
+    lastProviderCallTimestamp = new Date().toISOString();
     
     // Ensure error is properly serialized
     const errorResponse = {
@@ -538,6 +628,11 @@ CRITICAL: Your response must contain ONLY what ${config.stakeholderRole} would n
       maxTokens: 500
     });
 
+    // Track successful provider call
+    lastProviderStatus = 'READY';
+    lastProviderCallStatus = 'SUCCESS';
+    lastProviderCallTimestamp = new Date().toISOString();
+
     // Check for capability error
     if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
       return res.status(400).json({
@@ -565,6 +660,20 @@ CRITICAL: Your response must contain ONLY what ${config.stakeholderRole} would n
     console.error('❌ Error details:', error.message);
     console.error('❌ Error stack:', error.stack);
     
+    // Track provider failure
+    const errorMessage = error.message || '';
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '503';
+    } else if (errorMessage.includes('429')) {
+      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
+      lastProviderCallStatus = '429';
+    } else {
+      lastProviderStatus = 'ERROR';
+      lastProviderCallStatus = 'ERROR';
+    }
+    lastProviderCallTimestamp = new Date().toISOString();
+    
     // Ensure error is properly serialized
     const errorResponse = {
       error: 'LIVE_AI_ERROR',
@@ -581,13 +690,18 @@ CRITICAL: Your response must contain ONLY what ${config.stakeholderRole} would n
 });
 
 // Serve static files in production
+console.log('🔍 NODE_ENV:', process.env.NODE_ENV);
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '../dist');
+  console.log('🔍 Serving static files from:', distPath);
   app.use(express.static(distPath));
   
   app.get('*', (req, res) => {
+    console.log('🔍 Serving index.html for route:', req.path);
     res.sendFile(path.join(distPath, 'index.html'));
   });
+} else {
+  console.log('⚠️ Not in production mode, not serving static files');
 }
 
 app.listen(PORT, '0.0.0.0', () => {
@@ -602,6 +716,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🔑 API Key: ${info.apiKeySet ? '✅ SET' : '❌ NOT SET'}`);
   console.log(`🔒 Mode: LIVE AI (API key secured server-side)`);
   console.log(`🌐 Port: ${PORT}`);
+  console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
   console.log('='.repeat(60));
   console.log('✅ Backend ready to accept requests');
   console.log('='.repeat(60));

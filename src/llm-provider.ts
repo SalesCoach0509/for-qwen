@@ -8,6 +8,9 @@ const BACKEND_URL = typeof window !== 'undefined' && window.location.hostname !=
   ? '' // Same origin in production (backend serves frontend)
   : 'http://localhost:3001'; // Development
 
+console.log('🔍 BACKEND_URL:', BACKEND_URL);
+console.log('🔍 window.location.hostname:', typeof window !== 'undefined' ? window.location.hostname : 'N/A');
+
 export interface LLMMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -154,21 +157,29 @@ export class RoleplayProvider {
 // Check if backend is available (for LIVE AI MODE)
 export async function checkBackendHealth(): Promise<{ available: boolean; provider?: string; model?: string }> {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/health`, {
+    const url = `${BACKEND_URL}/api/health`;
+    console.log('🔍 checkBackendHealth: Fetching', url);
+    
+    const response = await fetch(url, {
       method: 'GET',
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(5000), // Increased timeout to 5 seconds
     });
+    
+    console.log('🔍 checkBackendHealth: Response status:', response.status);
     
     if (response.ok) {
       const data = await response.json();
+      console.log('✅ checkBackendHealth: Success, provider:', data.provider, 'model:', data.model);
       return {
         available: true,
         provider: data.provider,
         model: data.model,
       };
     }
+    console.log('⚠️ checkBackendHealth: Response not OK, status:', response.status);
     return { available: false };
-  } catch {
+  } catch (error) {
+    console.error('❌ checkBackendHealth: Error:', error);
     return { available: false };
   }
 }

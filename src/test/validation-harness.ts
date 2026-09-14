@@ -11,7 +11,77 @@
 
 import { generateBrief, generatePracticeEvaluation, analyzeTranscript } from '../ai-service';
 import { Interaction, PracticeEvaluation } from '../types';
-import { isLLMAvailable, checkBackendHealth, setLLMAvailable } from '../llm-provider';
+import { checkBackendHealth, setLLMAvailable } from '../llm-provider';
+
+// ============================================================================
+// BACKEND DIAGNOSTIC HELPER
+// ============================================================================
+
+interface BackendDiagnostic {
+  provider?: string;
+  model?: string;
+  mode?: string;
+  providerStatus?: 'READY' | 'TEMPORARILY_UNAVAILABLE' | 'ERROR' | 'NOT_CONFIGURED';
+  backendStatus?: string;
+  gatewayStatus?: string;
+  lastCallStatus?: string;
+}
+
+async function getBackendDiagnostic(): Promise<BackendDiagnostic> {
+  const BACKEND_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+    ? '' // Same origin in production
+    : 'http://localhost:3001'; // Development
+
+  const response = await fetch(`${BACKEND_URL}/api/diagnostic`, {
+    method: 'GET',
+    signal: AbortSignal.timeout(5000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Backend diagnostic failed: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
+}
+
+// ============================================================================
+// RETRY LOGIC FOR TRANSIENT ERRORS
+// ============================================================================
+
+async function withRetry<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 3,
+  baseDelayMs: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error as Error;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check if this is a transient error (503, 429, timeout)
+      const isTransient = 
+        errorMessage.includes('503') ||
+        errorMessage.includes('429') ||
+        errorMessage.includes('timeout') ||
+        errorMessage.includes('TEMPORARILY_UNAVAILABLE');
+      
+      if (!isTransient || attempt === maxRetries) {
+        throw error;
+      }
+      
+      // Exponential backoff
+      const delay = baseDelayMs * Math.pow(2, attempt - 1);
+      console.log(`⏳ Retry ${attempt}/${maxRetries} after ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error('Retry failed');
+}
 
 // ============================================================================
 // GATE 1: LLM VERIFICATION
@@ -21,6 +91,7 @@ export interface LLMVerificationResult {
   provider: string;
   model: string;
   isLiveMode: boolean;
+  providerStatus: 'READY' | 'TEMPORARILY_UNAVAILABLE' | 'ERROR' | 'NOT_CONFIGURED';
   operationsTested: string[];
   structuredOutputSuccess: number;
   structuredOutputTotal: number;
@@ -28,13 +99,16 @@ export interface LLMVerificationResult {
   failures: string[];
   avgLatencyMs: number;
   fallbackToMock: boolean;
+  blocked: boolean;
+  blockedReason?: string;
 }
 
 export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   const result: LLMVerificationResult = {
-    provider: import.meta.env.VITE_LLM_PROVIDER || 'mock',
-    model: import.meta.env.VITE_OPENAI_MODEL || 'unknown',
-    isLiveMode: isLLMAvailable(),
+    provider: 'unknown',
+    model: 'unknown',
+    isLiveMode: false,
+    providerStatus: 'NOT_CONFIGURED',
     operationsTested: [],
     structuredOutputSuccess: 0,
     structuredOutputTotal: 0,
@@ -42,17 +116,48 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
     failures: [],
     avgLatencyMs: 0,
     fallbackToMock: false,
+    blocked: false,
   };
 
   console.log('=== GATE 1: LLM VERIFICATION ===');
-  console.log(`Provider: ${result.provider}`);
-  console.log(`Model: ${result.model}`);
-  console.log(`Live Mode: ${result.isLiveMode}`);
+
+  // Get authoritative provider status from backend
+  try {
+    const diagnostic = await getBackendDiagnostic();
+    result.provider = diagnostic.provider || 'unknown';
+    result.model = diagnostic.model || 'unknown';
+    result.isLiveMode = diagnostic.mode === 'live';
+    result.providerStatus = diagnostic.providerStatus || 'NOT_CONFIGURED';
+    
+    console.log(`Provider: ${result.provider}`);
+    console.log(`Model: ${result.model}`);
+    console.log(`Live Mode: ${result.isLiveMode}`);
+    console.log(`Provider Status: ${result.providerStatus}`);
+  } catch (error) {
+    console.error('✗ Failed to get backend diagnostic:', error);
+    result.failures.push(`Failed to connect to backend: ${error}`);
+    result.blocked = true;
+    result.blockedReason = 'Backend unreachable';
+    return result;
+  }
 
   if (!result.isLiveMode) {
     console.warn('⚠️  RUNNING IN MOCK MODE - No real LLM configured');
-    console.warn('Set VITE_OPENAI_API_KEY or VITE_GEMINI_API_KEY for live testing');
-    result.failures.push('No LLM API key configured - running in mock mode');
+    result.failures.push('Backend not in live mode');
+    return result;
+  }
+
+  if (result.providerStatus === 'TEMPORARILY_UNAVAILABLE') {
+    console.warn('⚠️  PROVIDER TEMPORARILY UNAVAILABLE');
+    result.blocked = true;
+    result.blockedReason = 'Provider temporarily unavailable (503)';
+    return result;
+  }
+
+  if (result.providerStatus === 'ERROR') {
+    console.error('✗ PROVIDER ERROR');
+    result.blocked = true;
+    result.blockedReason = 'Provider error';
     return result;
   }
 
@@ -63,7 +168,7 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   try {
     result.operationsTested.push('generateBrief');
     result.structuredOutputTotal++;
-    const brief = await generateBrief(testInteraction);
+    const brief = await withRetry(() => generateBrief(testInteraction));
     
     if (brief && brief.objective && brief.stakeholderPriorities.length > 0) {
       result.structuredOutputSuccess++;
@@ -73,6 +178,16 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       console.error('✗ Brief generation: INVALID STRUCTURE');
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Check if this is a provider availability issue
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      result.blocked = true;
+      result.blockedReason = 'Provider temporarily unavailable (503)';
+      console.log(`⚠️  BLOCKED: ${result.blockedReason}`);
+      return result;
+    }
+    
     result.failures.push(`Brief generation failed: ${error}`);
     console.error('✗ Brief generation: FAILED', error);
   }
@@ -81,13 +196,13 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   try {
     result.operationsTested.push('generatePracticeEvaluation');
     result.structuredOutputTotal++;
-    const evaluation = await generatePracticeEvaluation(
+    const evaluation = await withRetry(() => generatePracticeEvaluation(
       [
         { role: 'ai', content: 'Your price is too high.' },
         { role: 'user', content: 'I understand. Can you help me understand what\'s driving that concern?' },
       ],
       { stakeholderRole: 'CFO', personality: 'Direct', pressureLevel: 'high', objectives: [], likelyObjections: [], commercialConstraints: '', hiddenPriorities: [], desiredOutcome: '' }
-    );
+    ));
     
     if (evaluation && evaluation.capabilityScores.length > 0) {
       result.structuredOutputSuccess++;
@@ -97,6 +212,16 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       console.error('✗ Practice evaluation: INVALID STRUCTURE');
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Check if this is a provider availability issue
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      result.blocked = true;
+      result.blockedReason = 'Provider temporarily unavailable (503)';
+      console.log(`⚠️  BLOCKED: ${result.blockedReason}`);
+      return result;
+    }
+    
     result.failures.push(`Practice evaluation failed: ${error}`);
     console.error('✗ Practice evaluation: FAILED', error);
   }
@@ -105,11 +230,11 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   try {
     result.operationsTested.push('analyzeTranscript');
     result.structuredOutputTotal++;
-    const analysis = await analyzeTranscript(
+    const analysis = await withRetry(() => analyzeTranscript(
       'Buyer: Your price is too high.\nEmployee: I understand. Can you help me understand what\'s driving that concern?',
       testInteraction,
       { id: 'test', interactionId: 'test', objective: '', stakeholderPriorities: [], relevantContext: [], commercialGuidance: { discountLimits: '', relevantPackage: '', tradeOffs: [], escalationItems: [], note: '' }, likelyObjections: [], recommendedQuestions: [], recommendedPositioning: [], thingsToAvoid: [], personalCoachingFocus: '', practiceRecommendation: '', generatedAt: '' }
-    );
+    ));
     
     if (analysis && analysis.planVsActual.length > 0) {
       result.structuredOutputSuccess++;
@@ -119,6 +244,16 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       console.error('✗ Transcript analysis: INVALID STRUCTURE');
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    
+    // Check if this is a provider availability issue
+    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
+      result.blocked = true;
+      result.blockedReason = 'Provider temporarily unavailable (503)';
+      console.log(`⚠️  BLOCKED: ${result.blockedReason}`);
+      return result;
+    }
+    
     result.failures.push(`Transcript analysis failed: ${error}`);
     console.error('✗ Transcript analysis: FAILED', error);
   }
@@ -827,9 +962,34 @@ export async function runFullValidation(): Promise<void> {
   // Gate 1: LLM Verification
   const llmResult = await verifyLLMIntegration();
   
+  // Check if Gate 1 is blocked
+  if (llmResult.blocked) {
+    console.log(`\n⚠️  GATE 1 BLOCKED: ${llmResult.blockedReason}`);
+    console.log(`Provider: ${llmResult.provider}`);
+    console.log(`Model: ${llmResult.model}`);
+    console.log(`\n⚠️  Gates 2-5 NOT RUN - Provider unavailable`);
+    
+    // Final Summary
+    console.log('\n╔═══════════════════════════════════════════════════════════╗');
+    console.log('║   VALIDATION SUMMARY                                    ║');
+    console.log('╚═══════════════════════════════════════════════════════════╝\n');
+    
+    console.log(`GATE 1 - LLM Verification: BLOCKED`);
+    console.log(`  Provider: ${llmResult.provider}`);
+    console.log(`  Model: ${llmResult.model}`);
+    console.log(`  Reason: ${llmResult.blockedReason}`);
+    console.log(`GATE 2 - Preparation Quality: NOT RUN`);
+    console.log(`GATE 3 - Benchmark: NOT RUN`);
+    console.log(`GATE 4 - Traceability: NOT RUN`);
+    console.log(`GATE 5 - Adversarial: NOT RUN`);
+
+    console.log('\n⚠️  Validation blocked by provider unavailability');
+    return;
+  }
+  
   if (!llmResult.isLiveMode) {
     console.log('\n⚠️  WARNING: Running in MOCK mode');
-    console.log('To test with real LLM, configure VITE_OPENAI_API_KEY or VITE_GEMINI_API_KEY\n');
+    console.log('To test with real LLM, configure backend with LLM_API_KEY\n');
   }
 
   // Gate 2: Preparation Quality
@@ -850,6 +1010,9 @@ export async function runFullValidation(): Promise<void> {
   console.log('╚═══════════════════════════════════════════════════════════╝\n');
   
   console.log(`GATE 1 - LLM Verification: ${llmResult.isLiveMode ? 'LIVE' : 'MOCK'} MODE`);
+  console.log(`  Provider: ${llmResult.provider}`);
+  console.log(`  Model: ${llmResult.model}`);
+  console.log(`  Status: ${llmResult.providerStatus}`);
   console.log(`GATE 2 - Preparation Quality: ${briefResults.filter(r => r.passed).length}/${briefResults.length} PASSED`);
   console.log(`GATE 3 - Benchmark: ${benchmarkResults.filter(r => r.inRange && r.evidenceGrounded).length}/${benchmarkResults.length} PASSED`);
   console.log(`GATE 4 - Traceability: ${traceabilityResult.passed ? 'PASSED' : 'FAILED'}`);

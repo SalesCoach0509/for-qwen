@@ -1,250 +1,138 @@
-# 🎯 FINAL DEPLOYMENT PACKAGE — COMPLETE
+# FINAL SUMMARY - LIVE MODE FIX
 
-## ✅ Status: READY FOR RAILWAY DEPLOYMENT
+## What I Did
 
-All audit fixes applied. All documentation consolidated. Build verified.
+I've added comprehensive debugging logs to help identify why the app is showing "Demo Mode" instead of "AI: Gemini".
 
----
+### Changes Made
 
-## 📦 What You Have
+1. **Frontend Debugging (src/llm-provider.ts)**
+   - Logs BACKEND_URL being used
+   - Logs window.location.hostname
+   - Logs health check fetch URL and response
+   - Increased timeout from 2s to 5s
 
-### A Complete, Production-Ready Application
+2. **Frontend Debugging (src/components/LLMStatus.tsx)**
+   - Logs when checking backend health
+   - Logs health check result
+   - Logs when setting LIVE mode vs Demo mode
 
-**AI Performance Coach MVP** with:
-- ✅ Full PREPARE → PRACTICE → PERFORM → ANALYZE → COACH → IMPROVE loop
-- ✅ Evidence-based Objection Handling assessment (5-level rubric)
-- ✅ Real Gemini 2.5 Flash integration (server-side, secure)
-- ✅ Capability memory with weighted scoring
-- ✅ Judge/evaluator for quality assurance
-- ✅ BEFORE/AFTER demonstration
-- ✅ Complete validation suite (28 test cases)
+3. **Backend Debugging (backend/server.js)**
+   - Logs NODE_ENV on startup
+   - Logs when serving static files
+   - Logs when health endpoint is called
+   - Logs gateway info
 
-### A Streamlined Deployment Package
+## Most Likely Issue
 
-**Single authoritative guide**: `DEPLOYMENT.md`
-- Clear step-by-step instructions
-- Environment variable matrix
-- Troubleshooting guide
-- Post-deployment verification
+**NODE_ENV is not set to 'production' in Railway**
 
-**Consolidated documentation**:
-- ✅ `DEPLOYMENT.md` — Complete deployment guide
-- ✅ `DEPLOYMENT_CHECKLIST.md` — Quick reference
-- ✅ `FINAL_DEPLOYMENT_PACKAGE.md` — File manifest
-- ✅ `README.md` — Project overview (updated)
+Without this, the backend won't serve the frontend static files, causing the app to fail.
 
----
+## What You Need to Do
 
-## 🔧 Audit Fixes Applied
+### 1. Add Environment Variable to Railway
 
-### Critical Issues (Fixed)
+In Railway dashboard, add:
+```
+NODE_ENV=production
+```
 
-1. **Dockerfile COPY Order** ✅
-   - Fixed: `COPY backend/server.js ./backend/` (line 30)
-   - Prevents node_modules overwrite
-
-2. **railway.json startCommand** ✅
-   - Fixed: Removed conflicting startCommand
-   - Uses Dockerfile CMD
-
-3. **Procfile Command** ✅
-   - Fixed: `web: node backend/server.js`
-   - Aligned with Dockerfile
-
-### High Issues (Fixed)
-
-4. **Host Binding** ✅
-   - Fixed: `app.listen(PORT, '0.0.0.0', () => {`
-   - Ensures cloud compatibility
-
----
-
-## 🚀 Deploy in 3 Steps
-
-### Step 1: Push to GitHub
+### 2. Deploy Updated Code
 
 ```bash
 git add .
-git commit -m "Final deployment package — audit complete"
+git commit -m "Add debugging logs for LIVE mode detection"
 git push origin main
 ```
 
-### Step 2: Deploy to Railway
+### 3. Check Railway Logs
 
-1. Go to https://railway.app
-2. Create project from GitHub repo
-3. Add environment variable:
-   - **Name**: `GEMINI_API_KEY`
-   - **Value**: Your Gemini API key from https://aistudio.google.com/apikey
-
-### Step 3: Verify
-
-1. Open your Railway URL
-2. Check top-right shows **"AI: Gemini"** (not "Demo Mode")
-3. Test the full flow
-4. Run validation suite (click "Validation" button)
-
----
-
-## 🔑 Environment Variables
-
-### Required (Add to Railway)
-
+After deployment, look for:
 ```
-GEMINI_API_KEY=your-gemini-api-key-here
+🔍 NODE_ENV: production
+🚀 PERFORMANCE COACH BACKEND STARTING
+📡 Provider: gemini
+🤖 Model: gemini-3.8-flash
+🔑 API Key: ✅ SET
+🌍 NODE_ENV: production
+✅ Backend ready to accept requests
+🔍 Serving static files from: /app/dist
 ```
 
-**Get your key**: https://aistudio.google.com/apikey
+### 4. Test Health Endpoint
 
-### Optional (Have Defaults)
-
+Open in browser:
 ```
-GEMINI_MODEL=gemini-2.5-flash  (default)
-PORT=3001                       (default)
-NODE_ENV=production             (default)
+https://your-app.up.railway.app/api/health
 ```
 
----
-
-## ✅ Post-Deployment Verification
-
-### Health Check
-
-```bash
-curl https://your-app.up.railway.app/api/health
-```
-
-Expected response:
+Should return:
 ```json
 {
   "status": "ok",
   "provider": "gemini",
-  "model": "gemini-2.5-flash",
-  "mode": "live"
+  "model": "gemini-3.8-flash",
+  "mode": "live",
+  "apiKeySet": true
 }
 ```
 
-### Application Test
+### 5. Check Browser Console
 
-- ✅ Login screen loads
-- ✅ "AI: Gemini" badge shows (top-right)
-- ✅ Can create interaction
-- ✅ Can generate brief
-- ✅ Can practice roleplay
-- ✅ Can upload transcript
-- ✅ Can view analysis
-- ✅ Validation suite passes (all gates)
+Open your app and press F12. Look for:
+```
+🔍 BACKEND_URL: 
+🔍 window.location.hostname: your-app.up.railway.app
+🔍 LLMStatus: Checking backend health...
+✅ checkBackendHealth: Success, provider: gemini model: gemini-3.8-flash
+✅ LLMStatus: Backend is available, setting LIVE mode
+```
 
----
+### 6. Verify UI
 
-## 🔒 Security
+You should see:
+- ✅ Green badge: "AI: Gemini (gemini-3.8-flash)"
+- ❌ NOT amber badge: "Demo Mode"
 
-- ✅ `GEMINI_API_KEY` is server-side only
-- ✅ Never exposed to browser
-- ✅ Never committed to git
-- ✅ Encrypted at rest by Railway
-- ✅ HTTPS enabled by Railway
+## If Still Showing "Demo Mode"
 
----
+Please share:
+1. Railway logs (startup messages)
+2. Browser console output (F12)
+3. Health endpoint response
 
-## 💰 Cost Estimate
+This will help identify the exact issue.
 
-- **Railway**: $5-15/month
-- **Gemini API**: $0-10/month (free tier available)
-- **Total**: $5-25/month
+## Documentation Created
 
----
+1. `DEBUGGING_GUIDE.md` - Comprehensive debugging guide
+2. `LIVE_MODE_FIX_COMPLETE.md` - Complete implementation details
+3. `LIVE_MODE_FIX_SUMMARY.md` - Quick summary
+4. `FINAL_SUMMARY.md` - This file
 
-## 📚 Documentation
+## Quick Reference
 
-| File | Purpose |
-|------|---------|
-| **DEPLOYMENT.md** | ⭐ Complete deployment guide (START HERE) |
-| **DEPLOYMENT_CHECKLIST.md** | Quick reference checklist |
-| **FINAL_DEPLOYMENT_PACKAGE.md** | File manifest |
-| **README.md** | Project overview |
-| **ARCHITECTURE.md** | System architecture |
+### Railway Environment Variables Needed:
+```
+LLM_PROVIDER=gemini
+LLM_API_KEY=your-actual-gemini-api-key
+LLM_MODEL=gemini-3.8-flash
+NODE_ENV=production  ← THIS IS CRITICAL
+PORT=3001
+```
 
----
+### Test Commands:
+```bash
+# Test health endpoint
+curl https://your-app.up.railway.app/api/health
 
-## 🎯 What's Next?
-
-### Immediate
-
-1. **Deploy to Railway** (follow DEPLOYMENT.md)
-2. **Add GEMINI_API_KEY** to Railway
-3. **Verify deployment** (use checklist)
-4. **Run validation suite** (confirm all gates pass)
-
-### After Deployment
-
-1. **Share with users** (5-10 sales professionals)
-2. **Collect feedback** on the experience
-3. **Monitor usage** in Railway dashboard
-4. **Iterate** based on feedback
+# Test diagnostic endpoint
+curl https://your-app.up.railway.app/api/diagnostic
+```
 
 ---
 
-## 📊 Deployment Readiness
+**Status:** ✅ Debugging logs added, ready for deployment
 
-| Area | Status |
-|------|--------|
-| Repository Structure | ✅ PASS |
-| Frontend Dependencies | ✅ PASS |
-| Backend Dependencies | ✅ PASS |
-| Node/NPM Compatibility | ✅ PASS |
-| Dockerfile | ✅ PASS (audit fixes applied) |
-| Railway Config | ✅ PASS (conflicts resolved) |
-| Server/Port | ✅ PASS (explicit binding) |
-| Frontend↔Backend | ✅ PASS |
-| Gemini/LLM Security | ✅ PASS |
-| Environment Variables | ✅ PASS |
-| File Path Compatibility | ✅ PASS |
-| Build + Start Test | ✅ PASS |
-| Application Smoke Test | ✅ PASS |
-| Security | ✅ PASS |
-| Persistence | ✅ PASS |
-| Demo vs Live Mode | ✅ PASS |
-| Deployment Docs | ✅ PASS (consolidated) |
-
-**Overall**: ✅ READY FOR DEPLOYMENT
-
----
-
-## 🎉 Summary
-
-You now have:
-
-✅ **A complete, working application**
-- Full performance coaching loop
-- Evidence-based assessment
-- Real Gemini integration
-- Comprehensive validation
-
-✅ **A streamlined deployment package**
-- Single authoritative guide
-- All audit fixes applied
-- Clear step-by-step instructions
-- Post-deployment verification
-
-✅ **Production-ready infrastructure**
-- Docker containerization
-- Railway deployment config
-- Security hardened
-- Cost-optimized
-
----
-
-## 🚀 Ready to Deploy?
-
-**Open `DEPLOYMENT.md` and follow the guide.**
-
-You'll have a live application in 15 minutes.
-
----
-
-**Package Version**: MVP v0.1 (Final)  
-**Audit Date**: 2026-01-XX  
-**Status**: ✅ READY FOR RAILWAY DEPLOYMENT
-
-**Good luck with your deployment!** 🎯
+**Next Step:** Add `NODE_ENV=production` to Railway and deploy
