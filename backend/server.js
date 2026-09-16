@@ -285,6 +285,71 @@ app.get('/api/diagnostic', (req, res) => {
   res.json(diagnostic);
 });
 
+function parseJsonObject(text) {
+  const normalized = String(text || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  try {
+    return JSON.parse(normalized);
+  } catch {
+    // Some providers prepend a sentence before otherwise valid JSON. Extract the
+    // first complete JSON object or array while respecting quoted strings.
+    const start = normalized.search(/[\[{]/);
+    if (start === -1) return null;
+
+    const opening = normalized[start];
+    const closing = opening === '{' ? '}' : ']';
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start; index < normalized.length; index += 1) {
+      const character = normalized[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') inString = true;
+      else if (character === opening) depth += 1;
+      else if (character === closing) {
+        depth -= 1;
+        if (depth === 0) {
+          try {
+            return JSON.parse(normalized.slice(start, index + 1));
+          } catch {
+            return null;
+          }
+        }
+      }
+    }
+    return null;
+  }
+}
+
+async function ensureStructuredJson(messages, result, maxTokens) {
+  const parsed = parseJsonObject(result.content);
+  if (parsed !== null) return { content: JSON.stringify(parsed), usage: result.usage };
+
+  // One explicit repair attempt handles providers that ignore JSON mode or add
+  // prose. It remains a live model call—there is no mocked fallback.
+  const repairResult = await aiGateway.generate([
+    ...messages,
+    { role: 'assistant', content: result.content },
+    { role: 'user', content: 'Your previous answer was not valid JSON. Return the complete corrected answer as JSON only, with no prose, markdown, or code fences.' },
+  ], {
+    temperature: 0,
+    maxTokens,
+    jsonMode: true,
+  });
+  const repaired = parseJsonObject(repairResult.content);
+  if (repaired === null) {
+    const error = new Error('The LLM returned invalid structured output after one repair attempt.');
+    error.name = 'InvalidStructuredOutputError';
+    throw error;
+  }
+  return { content: JSON.stringify(repaired), usage: repairResult.usage };
+}
+
 // Generic chat endpoint for frontend proxy
 app.post('/api/ai/chat', async (req, res) => {
   try {
@@ -302,11 +367,17 @@ app.post('/api/ai/chat', async (req, res) => {
     }
 
     console.log('🤖 Calling AI Gateway...');
-    const result = await aiGateway.generate(messages, {
+    const jsonMode = options?.jsonMode ?? false;
+    const maxTokens = options?.maxTokens ?? (jsonMode ? 4096 : 2000);
+    let result = await aiGateway.generate(messages, {
       temperature: options?.temperature ?? 0.7,
-      maxTokens: options?.maxTokens ?? 2000,
-      jsonMode: options?.jsonMode ?? false,
+      maxTokens,
+      jsonMode,
     });
+
+    if (jsonMode) {
+      result = await ensureStructuredJson(messages, result, maxTokens);
+    }
 
     // Track successful provider call
     lastProviderStatus = 'READY';
@@ -358,7 +429,7 @@ app.post('/api/ai/chat', async (req, res) => {
     
     console.error('❌ Returning error response:', JSON.stringify(errorResponse));
     
-    res.status(500).json(errorResponse);
+    res.status(error.name === 'InvalidStructuredOutputError' ? 502 : 500).json(errorResponse);
   }
 });
 
