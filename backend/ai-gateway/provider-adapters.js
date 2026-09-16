@@ -109,6 +109,13 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
           max_tokens: options.maxTokens ?? 2000,
         };
 
+        // GPT-OSS defaults to medium reasoning effort. These coaching actions
+        // need concise structured answers, so low effort avoids spending most
+        // of the request budget on hidden reasoning tokens.
+        if (this.name === 'nvidia-nim') {
+          requestBody.reasoning_effort = process.env.NVIDIA_REASONING_EFFORT || 'low';
+        }
+
         // Add JSON mode if requested
         if (options.jsonMode) {
           requestBody.response_format = { type: 'json_object' };

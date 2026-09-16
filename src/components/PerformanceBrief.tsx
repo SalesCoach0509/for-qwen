@@ -15,11 +15,19 @@ interface Props {
 export default function PerformanceBrief({ state, interactionId, navigate }: Props) {
   const [brief, setBrief] = useState<PreparationBrief | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const interaction = state.interactions.find(i => i.id === interactionId);
 
   useEffect(() => {
-    if (!interactionId || !interaction) return;
+    if (!interactionId || !interaction) {
+      setError('This interaction is no longer available. Return to the dashboard and select it again.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
     
     // Check if brief already exists
     const existing = store.getBriefForInteraction(interactionId);
@@ -35,12 +43,16 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
       store.updateInteraction(interactionId, { status: 'prepared' });
       setBrief(b);
       setLoading(false);
+    }).catch(error => {
+      console.error('Brief generation failed:', error);
+      setError('We could not generate the brief. The AI provider took too long or was temporarily unavailable.');
+      setLoading(false);
     });
-  }, [interactionId, interaction]);
+  }, [interactionId, interaction, retryCount]);
 
 
 
-  if (loading || !brief) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-surface-50 flex items-center justify-center">
         <div className="text-center animate-pulse-soft">
@@ -49,6 +61,22 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
           </div>
           <p className="text-surface-600 font-medium">Preparing your brief...</p>
           <p className="text-sm text-surface-400 mt-1">Analyzing context and your capability profile</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !brief) {
+    return (
+      <div className="min-h-screen bg-surface-50 flex items-center justify-center p-4">
+        <div className="max-w-md bg-white rounded-2xl shadow-lg p-6 text-center">
+          <AlertTriangle size={32} className="text-amber-500 mx-auto mb-3" />
+          <h1 className="text-lg font-bold text-surface-900">Brief generation did not complete</h1>
+          <p className="text-sm text-surface-600 mt-2">{error || 'No brief is available for this interaction.'}</p>
+          <div className="mt-5 flex justify-center gap-3">
+            <button onClick={() => navigate('dashboard')} className="px-4 py-2 rounded-lg border border-surface-200 text-surface-700">Dashboard</button>
+            <button onClick={() => setRetryCount(count => count + 1)} className="px-4 py-2 rounded-lg bg-primary-600 text-white">Retry</button>
+          </div>
         </div>
       </div>
     );

@@ -16,12 +16,20 @@ interface Props {
 export default function PostInteraction({ state, interactionId, navigate }: Props) {
   const [analysis, setAnalysis] = useState<PostInteractionAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   const interaction = state.interactions.find(i => i.id === interactionId);
   const transcript = state.transcripts.find(t => t.interactionId === interactionId);
 
   useEffect(() => {
-    if (!interactionId || !interaction) return;
+    if (!interactionId || !interaction) {
+      setError('This interaction is no longer available. Return to the dashboard and select it again.');
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setError(null);
     
     // Check if analysis already exists
     const existing = store.getAnalysisForInteraction(interactionId);
@@ -57,8 +65,12 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
       
       setAnalysis(a);
       setLoading(false);
+    }).catch(error => {
+      console.error('Transcript analysis failed:', error);
+      setError('We could not analyze this interaction. The AI provider took too long or was temporarily unavailable.');
+      setLoading(false);
     });
-  }, [interactionId, interaction, transcript]);
+  }, [interactionId, interaction, transcript, retryCount]);
 
   if (loading) {
     return (
@@ -69,6 +81,22 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
           </div>
           <p className="text-surface-600 font-medium">Analyzing your interaction...</p>
           <p className="text-sm text-surface-400 mt-1">Comparing plan vs. actual performance</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-surface-50 flex items-center justify-center p-4">
+        <div className="max-w-md bg-white rounded-2xl shadow-lg p-6 text-center">
+          <AlertTriangle size={32} className="text-amber-500 mx-auto mb-3" />
+          <h1 className="text-lg font-bold text-surface-900">Analysis did not complete</h1>
+          <p className="text-sm text-surface-600 mt-2">{error}</p>
+          <div className="mt-5 flex justify-center gap-3">
+            <button onClick={() => navigate('upload', interactionId || undefined)} className="px-4 py-2 rounded-lg border border-surface-200 text-surface-700">Back</button>
+            <button onClick={() => setRetryCount(count => count + 1)} className="px-4 py-2 rounded-lg bg-primary-600 text-white">Retry</button>
+          </div>
         </div>
       </div>
     );
