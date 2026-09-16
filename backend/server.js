@@ -75,6 +75,37 @@ let lastProviderStatus = 'UNKNOWN';
 let lastProviderCallStatus = null;
 let lastProviderCallTimestamp = null;
 
+const diagnosticTimeoutMs = Number.parseInt(process.env.LLM_DIAGNOSTIC_TIMEOUT_MS || '90000', 10);
+
+function recordProviderSuccess() {
+  lastProviderStatus = 'READY';
+  lastProviderCallStatus = 'SUCCESS';
+  lastProviderCallTimestamp = new Date().toISOString();
+}
+
+function recordProviderFailure(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  lastProviderStatus = /\b(?:429|500|502|503|504)\b|timeout|temporarily.unavailable|high demand/i.test(message)
+    ? 'TEMPORARILY_UNAVAILABLE'
+    : 'ERROR';
+  lastProviderCallStatus = lastProviderStatus === 'TEMPORARILY_UNAVAILABLE' ? 'UNAVAILABLE' : 'ERROR';
+  lastProviderCallTimestamp = new Date().toISOString();
+  return message;
+}
+
+function withTimeout(operation, timeoutMs, label) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+      error.name = 'TimeoutError';
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([operation, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
 // Live LLM test endpoint - tests actual provider connection
 app.post('/api/diagnostic/llm-test', async (req, res) => {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
@@ -82,13 +113,15 @@ app.post('/api/diagnostic/llm-test', async (req, res) => {
   
   try {
     // Send a minimal test request through the gateway
-    const testResult = await aiGateway.generate(
-      [{ role: 'user', content: 'Say "OK"' }],
-      { maxTokens: 10, jsonMode: false }
+    const testResult = await withTimeout(
+      aiGateway.generate([{ role: 'user', content: 'Say "OK"' }], { maxTokens: 10, jsonMode: false }),
+      diagnosticTimeoutMs,
+      'LLM diagnostic'
     );
     
     const latency = Date.now() - startTime;
     
+    recordProviderSuccess();
     res.json({
       success: true,
       provider: aiGateway.getInfo().provider,
@@ -101,15 +134,15 @@ app.post('/api/diagnostic/llm-test', async (req, res) => {
     });
   } catch (error) {
     const latency = Date.now() - startTime;
-    
-    res.json({
+    const errorMessage = recordProviderFailure(error);
+    res.status(error.name === 'TimeoutError' ? 504 : 503).json({
       success: false,
       provider: aiGateway.getInfo().provider,
       model: aiGateway.getInfo().model,
       requestId: requestId,
       latency: latency,
       structuredOutput: false,
-      error: error.message,
+      error: errorMessage,
       timestamp: new Date().toISOString()
     });
   }
@@ -202,7 +235,7 @@ function determineConversationState(history, lastResponse, lastUserMessage) {
 }
 
 // Diagnostic endpoint - helps debug configuration issues
-app.get('/api/diagnostic', async (req, res) => {
+app.get('/api/diagnostic', (req, res) => {
   const gatewayInfo = aiGateway.getInfo();
   
   // Determine provider status
@@ -240,47 +273,14 @@ app.get('/api/diagnostic', async (req, res) => {
       capabilities: gatewayInfo.capabilities,
       maxContext: gatewayInfo.maxContext,
     },
-    tests: {}
+    tests: {
+      gatewayConnection: {
+        success: lastProviderStatus === 'READY',
+        checkedAt: lastProviderCallTimestamp,
+        note: 'Use POST /api/diagnostic/llm-test for a live provider probe.'
+      }
+    }
   };
-
-  // Test AI Gateway connection
-  try {
-    console.log('🔍 Running diagnostic test...');
-    const testResult = await aiGateway.generate(
-      [{ role: 'user', content: 'Say "OK"' }],
-      { maxTokens: 10, jsonMode: false }
-    );
-    diagnostic.tests.gatewayConnection = {
-      success: true,
-      response: testResult.content,
-      usage: testResult.usage,
-      timestamp: new Date().toISOString()
-    };
-    lastProviderStatus = 'READY';
-    lastProviderCallStatus = 'SUCCESS';
-    lastProviderCallTimestamp = diagnostic.tests.gatewayConnection.timestamp;
-    diagnostic.providerStatus = lastProviderStatus;
-    diagnostic.lastCallStatus = lastProviderCallStatus;
-    diagnostic.lastCallTimestamp = lastProviderCallTimestamp;
-    console.log('✅ Diagnostic test passed');
-  } catch (error) {
-    console.error('❌ Diagnostic test failed:', error);
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    lastProviderStatus = /\b(?:429|503)\b|temporarily.unavailable|high demand/i.test(errorMessage)
-      ? 'TEMPORARILY_UNAVAILABLE'
-      : 'ERROR';
-    lastProviderCallStatus = lastProviderStatus === 'TEMPORARILY_UNAVAILABLE' ? 'UNAVAILABLE' : 'ERROR';
-    lastProviderCallTimestamp = new Date().toISOString();
-    diagnostic.tests.gatewayConnection = {
-      success: false,
-      error: errorMessage,
-      name: error instanceof Error ? error.name : 'Error',
-      timestamp: lastProviderCallTimestamp
-    };
-    diagnostic.providerStatus = lastProviderStatus;
-    diagnostic.lastCallStatus = lastProviderCallStatus;
-    diagnostic.lastCallTimestamp = lastProviderCallTimestamp;
-  }
 
   res.json(diagnostic);
 });

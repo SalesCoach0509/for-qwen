@@ -4,9 +4,12 @@
 
 // In production, backend serves frontend, so use same origin
 // In development, backend runs on port 3001
-const BACKEND_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-  ? '' // Same origin in production (backend serves frontend)
-  : 'http://localhost:3001'; // Development
+const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+const BACKEND_URL = isLocalDevelopment
+  ? 'http://localhost:3001'
+  : '';
+const BACKEND_STATUS_TIMEOUT_MS = Number(import.meta.env.VITE_BACKEND_STATUS_TIMEOUT_MS || '5000');
+const AI_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_AI_REQUEST_TIMEOUT_MS || '95000');
 
 console.log('🔍 BACKEND_URL:', BACKEND_URL);
 console.log('🔍 window.location.hostname:', typeof window !== 'undefined' ? window.location.hostname : 'N/A');
@@ -55,6 +58,7 @@ class BackendProxyProvider implements LLMProvider {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages, options }),
+        signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
       });
 
       const latency = Date.now() - startTime;
@@ -101,9 +105,7 @@ export function createLLMProvider(): LLMProvider {
 
 // Specialized Roleplay Provider - uses dedicated endpoint with conversation history
 export class RoleplayProvider {
-  private static BACKEND_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? '' // Same origin in production
-    : 'http://localhost:3001'; // Development
+  private static BACKEND_URL = BACKEND_URL;
 
   static async getRoleplayResponse(
     userMessage: string,
@@ -123,6 +125,7 @@ export class RoleplayProvider {
           conversationHistory,
           sessionId
         }),
+        signal: AbortSignal.timeout(AI_REQUEST_TIMEOUT_MS),
       });
 
       const latency = Date.now() - startTime;
@@ -167,7 +170,7 @@ export async function checkBackendHealth(): Promise<{ available: boolean; provid
     
     const response = await fetch(url, {
       method: 'GET',
-      signal: AbortSignal.timeout(5000), // Increased timeout to 5 seconds
+      signal: AbortSignal.timeout(BACKEND_STATUS_TIMEOUT_MS),
     });
     
     console.log('🔍 checkBackendHealth: Response status:', response.status);

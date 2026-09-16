@@ -5,6 +5,23 @@
  * Each provider must implement these methods.
  */
 
+function getRequestTimeoutMs() {
+  const value = Number.parseInt(process.env.LLM_REQUEST_TIMEOUT_MS || '60000', 10);
+  return Number.isFinite(value) && value > 0 ? value : 60000;
+}
+
+function withTimeout(operation, timeoutMs, label) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = new Error(`${label} timed out after ${timeoutMs}ms`);
+      error.name = 'TimeoutError';
+      reject(error);
+    }, timeoutMs);
+  });
+  return Promise.race([operation, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
 export class BaseProviderAdapter {
   constructor(config) {
     this.config = config;
@@ -90,19 +107,22 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
         }
 
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
-
-        const response = await fetch(`${this.baseUrl}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
+        const requestTimeoutMs = getRequestTimeoutMs();
+        const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+        let response;
+        try {
+          response = await fetch(`${this.baseUrl}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         const latency = Date.now() - startTime;
 
@@ -146,8 +166,11 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
         const latency = Date.now() - startTime;
         
         if (error.name === 'AbortError') {
-          console.error(`✗ ${this.name} request timed out after 60 seconds`);
-          throw new Error(`${this.name} API request timed out after 60 seconds. The model may be overloaded or slow to respond.`);
+          const requestTimeoutMs = getRequestTimeoutMs();
+          console.error(`✗ ${this.name} request timed out after ${requestTimeoutMs}ms`);
+          const timeoutError = new Error(`${this.name} API request timed out after ${requestTimeoutMs}ms. The model may be overloaded or slow to respond.`);
+          timeoutError.name = 'TimeoutError';
+          throw timeoutError;
         }
         
         // Check if this is a transient error
@@ -228,12 +251,14 @@ export class GeminiAdapter extends BaseProviderAdapter {
           generationConfig.responseMimeType = 'application/json';
         }
 
-        const result = await this.modelInstance.generateContent({
-          contents,
-          generationConfig,
-        });
+        const requestTimeoutMs = getRequestTimeoutMs();
+        const result = await withTimeout(
+          this.modelInstance.generateContent({ contents, generationConfig }),
+          requestTimeoutMs,
+          `Gemini ${this.model} request`
+        );
 
-        const response = await result.response;
+        const response = await withTimeout(result.response, requestTimeoutMs, `Gemini ${this.model} response`);
         const text = response.text();
         const latency = Date.now() - startTime;
 
@@ -324,14 +349,23 @@ export class QwenAdapter extends OpenAICompatibleAdapter {
         requestBody.parameters.result_format = 'message';
       }
 
-      const response = await fetch(`${this.baseUrl}/services/aigc/text-generation/generation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify(requestBody),
-      });
+      const controller = new AbortController();
+      const requestTimeoutMs = getRequestTimeoutMs();
+      const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
+      let response;
+      try {
+        response = await fetch(`${this.baseUrl}/services/aigc/text-generation/generation`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`,
+          },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       const latency = Date.now() - startTime;
 

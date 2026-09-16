@@ -21,20 +21,32 @@ interface BackendDiagnostic {
   provider?: string;
   model?: string;
   mode?: string;
-  providerStatus?: 'READY' | 'TEMPORARILY_UNAVAILABLE' | 'ERROR' | 'NOT_CONFIGURED';
+  providerStatus?: 'READY' | 'TEMPORARILY_UNAVAILABLE' | 'ERROR' | 'NOT_CONFIGURED' | 'UNKNOWN';
   backendStatus?: string;
   gatewayStatus?: string;
   lastCallStatus?: string;
 }
 
-async function getBackendDiagnostic(): Promise<BackendDiagnostic> {
-  const BACKEND_URL = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-    ? '' // Same origin in production
-    : 'http://localhost:3001'; // Development
+interface LiveProbeResult {
+  success: boolean;
+  provider?: string;
+  model?: string;
+  latency?: number;
+  error?: string;
+}
 
-  const response = await fetch(`${BACKEND_URL}/api/diagnostic`, {
+const BACKEND_STATUS_TIMEOUT_MS = Number(import.meta.env.VITE_BACKEND_STATUS_TIMEOUT_MS || '5000');
+const LLM_DIAGNOSTIC_TIMEOUT_MS = Number(import.meta.env.VITE_LLM_DIAGNOSTIC_TIMEOUT_MS || '95000');
+
+function getBackendUrl(): string {
+  const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+  return isLocalDevelopment ? 'http://localhost:3001' : '';
+}
+
+async function getBackendDiagnostic(): Promise<BackendDiagnostic> {
+  const response = await fetch(`${getBackendUrl()}/api/diagnostic`, {
     method: 'GET',
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(BACKEND_STATUS_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -42,6 +54,21 @@ async function getBackendDiagnostic(): Promise<BackendDiagnostic> {
   }
 
   return await response.json();
+}
+
+async function probeLiveProvider(): Promise<LiveProbeResult> {
+  const response = await fetch(`${getBackendUrl()}/api/diagnostic/llm-test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(LLM_DIAGNOSTIC_TIMEOUT_MS),
+  });
+  const data: LiveProbeResult = await response.json().catch(() => ({}));
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || `Live LLM diagnostic failed: ${response.status} ${response.statusText}`);
+  }
+
+  return data;
 }
 
 // ============================================================================
@@ -57,7 +84,7 @@ export interface LLMVerificationResult {
   provider: string;
   model: string;
   isLiveMode: boolean;
-  providerStatus: 'READY' | 'TEMPORARILY_UNAVAILABLE' | 'ERROR' | 'NOT_CONFIGURED';
+  providerStatus: 'READY' | 'TEMPORARILY_UNAVAILABLE' | 'ERROR' | 'NOT_CONFIGURED' | 'UNKNOWN';
   operationsTested: string[];
   structuredOutputSuccess: number;
   structuredOutputTotal: number;
@@ -136,17 +163,23 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
     return result;
   }
 
-  if (result.providerStatus === 'TEMPORARILY_UNAVAILABLE') {
-    console.warn('⚠️  PROVIDER TEMPORARILY UNAVAILABLE');
+  try {
+    console.log(`Running live provider probe (timeout: ${LLM_DIAGNOSTIC_TIMEOUT_MS}ms)...`);
+    const probe = await probeLiveProvider();
+    result.operationsTested.push('liveProviderProbe');
+    result.provider = probe.provider || result.provider;
+    result.model = probe.model || result.model;
+    result.providerStatus = 'READY';
+    console.log(`✓ Live provider probe succeeded${probe.latency ? ` in ${probe.latency}ms` : ''}`);
+  } catch (error: any) {
+    const message = error instanceof Error ? error.message : String(error);
+    result.providerStatus = /\b(?:429|500|502|503|504)\b|timeout|temporarily.unavailable|high demand/i.test(message)
+      ? 'TEMPORARILY_UNAVAILABLE'
+      : 'ERROR';
     result.blocked = true;
-    result.blockedReason = 'Provider temporarily unavailable (503)';
-    return result;
-  }
-
-  if (result.providerStatus === 'ERROR') {
-    console.error('✗ PROVIDER ERROR');
-    result.blocked = true;
-    result.blockedReason = 'Provider error';
+    result.blockedReason = `Live LLM diagnostic failed: ${message}`;
+    result.failures.push(result.blockedReason);
+    console.error(`⚠️  BLOCKED: ${result.blockedReason}`);
     return result;
   }
 
