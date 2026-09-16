@@ -1013,7 +1013,7 @@ export async function runFullValidation(): Promise<void> {
     console.log(`\n⚠️  GATE 1 BLOCKED: ${llmResult.blockedReason}`);
     console.log(`Provider: ${llmResult.provider}`);
     console.log(`Model: ${llmResult.model}`);
-    console.log(`\n⚠️  Gates 2-5 NOT RUN - Provider unavailable`);
+    console.log(`\n⚠️  Gates 2-5 NOT RUN - Gate 1 requirements were not met`);
     
     // Final Summary
     console.log('\n╔═══════════════════════════════════════════════════════════╗');
@@ -1029,7 +1029,7 @@ export async function runFullValidation(): Promise<void> {
     console.log(`GATE 4 - Traceability: NOT RUN`);
     console.log(`GATE 5 - Adversarial: NOT RUN`);
 
-    console.log('\n⚠️  Validation blocked by provider unavailability');
+    console.log('\n⚠️  Validation stopped because Gate 1 did not pass');
     return;
   }
   

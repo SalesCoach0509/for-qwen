@@ -76,6 +76,7 @@ let lastProviderCallStatus = null;
 let lastProviderCallTimestamp = null;
 
 const diagnosticTimeoutMs = Number.parseInt(process.env.LLM_DIAGNOSTIC_TIMEOUT_MS || '120000', 10);
+const structuredRepairTimeoutMs = Number.parseInt(process.env.LLM_STRUCTURED_REPAIR_TIMEOUT_MS || '30000', 10);
 
 function recordProviderSuccess() {
   lastProviderStatus = 'READY';
@@ -326,24 +327,48 @@ function parseJsonObject(text) {
   }
 }
 
+function getRequiredStructuredFields(messages) {
+  const prompt = messages.map(message => message.content || '').join('\n');
+  if (prompt.includes('"commercialGuidance"') && prompt.includes('"stakeholderPriorities"')) {
+    return ['objective', 'stakeholderPriorities', 'relevantContext', 'commercialGuidance', 'likelyObjections', 'recommendedQuestions', 'recommendedPositioning', 'thingsToAvoid', 'personalCoachingFocus', 'practiceRecommendation'];
+  }
+  if (prompt.includes('"objectionHandlingScore"') && prompt.includes('"overallReadiness"')) {
+    return ['objectionHandlingScore', 'objectionHandlingLevel', 'evidence', 'strength', 'weakness', 'recommendedIntervention', 'overallReadiness', 'otherCapabilities'];
+  }
+  if (prompt.includes('"planVsActual"') && prompt.includes('"nextIntervention"')) {
+    return ['planVsActual', 'strengths', 'missedOpportunities', 'objectionHandlingScore', 'objectionHandlingEvidence', 'repeatedPatterns', 'likelyImpact', 'nextIntervention'];
+  }
+  return [];
+}
+
+function hasRequiredStructuredFields(value, requiredFields) {
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && requiredFields.every(field => Object.prototype.hasOwnProperty.call(value, field));
+}
+
 async function ensureStructuredJson(messages, result, maxTokens) {
   const parsed = parseJsonObject(result.content);
-  if (parsed !== null) return { content: JSON.stringify(parsed), usage: result.usage };
+  const requiredFields = getRequiredStructuredFields(messages);
+  if (parsed !== null && hasRequiredStructuredFields(parsed, requiredFields)) {
+    return { content: JSON.stringify(parsed), usage: result.usage };
+  }
 
   // One explicit repair attempt handles providers that ignore JSON mode or add
   // prose. It remains a live model call—there is no mocked fallback.
-  const repairResult = await aiGateway.generate([
+  const repairResult = await withTimeout(aiGateway.generate([
     ...messages,
     { role: 'assistant', content: result.content },
-    { role: 'user', content: 'Your previous answer was not valid JSON. Return the complete corrected answer as JSON only, with no prose, markdown, or code fences.' },
+    { role: 'user', content: `Your previous answer was invalid or incomplete. Return the complete corrected answer as JSON only, with no prose, markdown, or code fences. Required top-level fields: ${requiredFields.join(', ') || 'the requested schema'}.` },
   ], {
     temperature: 0,
     maxTokens,
     jsonMode: true,
-  });
+  }), structuredRepairTimeoutMs, 'Structured-output repair');
   const repaired = parseJsonObject(repairResult.content);
-  if (repaired === null) {
-    const error = new Error('The LLM returned invalid structured output after one repair attempt.');
+  if (repaired === null || !hasRequiredStructuredFields(repaired, requiredFields)) {
+    const error = new Error(`The LLM returned invalid or incomplete structured output after one repair attempt. Required fields: ${requiredFields.join(', ') || 'requested schema'}.`);
     error.name = 'InvalidStructuredOutputError';
     throw error;
   }

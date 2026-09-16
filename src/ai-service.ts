@@ -41,7 +41,8 @@ Output JSON:
   "thingsToAvoid": ["avoid1"],
   "personalCoachingFocus": "coaching text based on capability history",
   "practiceRecommendation": "practice text based on capability history"
-}`;
+}
+Keep every array to at most 3 concise items and keep the complete response below 1,200 tokens.`;
 
   // Build capability context from history
   let capabilityContext = 'No capability history available.';
@@ -67,7 +68,7 @@ Generate a personalized brief that addresses the employee's specific risks based
 
   const response = await provider.chat(
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    { temperature: 0.7, jsonMode: true }
+    { temperature: 0.4, maxTokens: 1400, jsonMode: true }
   );
 
   const data = JSON.parse(response.content);
@@ -271,11 +272,12 @@ Output JSON with this exact structure:
   "recommendedIntervention": "<specific practice>",
   "overallReadiness": <number 0-100>,
   "otherCapabilities": []
-}`;
+}
+Use at most 3 evidence items and return the complete response below 1,000 tokens.`;
 
   const response = await provider.chat(
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: `Scenario: ${config.stakeholderRole}\n\n${conversation}` }],
-    { temperature: 0.2, jsonMode: true }
+    { temperature: 0.2, maxTokens: 1200, jsonMode: true }
   );
 
   const data = JSON.parse(response.content);

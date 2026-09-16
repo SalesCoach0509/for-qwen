@@ -400,11 +400,11 @@ Preparation Brief Key Points:
 Transcript (with line numbers):
 ${numberedTranscript}
 
-Analyze the interaction following the rubric strictly. Every piece of evidence MUST reference specific line numbers.`;
+Analyze the interaction following the rubric strictly. Every piece of evidence MUST reference specific line numbers. Use at most 3 evidence items and keep the complete response below 1,400 tokens.`;
 
   const response = await provider.chat(
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    { temperature: 0.2, jsonMode: true }
+    { temperature: 0.2, maxTokens: 1600, jsonMode: true }
   );
 
   const data = JSON.parse(response.content);
