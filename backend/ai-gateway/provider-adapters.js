@@ -10,6 +10,19 @@ function getRequestTimeoutMs() {
   return Number.isFinite(value) && value > 0 ? value : 90000;
 }
 
+// Keep each provider attempt below the browser's end-to-end budget, leaving
+// time for one clean retry if the upstream provider stalls.
+function getAttemptTimeoutMs() {
+  const configured = Number.parseInt(process.env.LLM_ATTEMPT_TIMEOUT_MS || '55000', 10);
+  const attemptLimit = Number.isFinite(configured) && configured > 0 ? configured : 55000;
+  return Math.min(attemptLimit, getRequestTimeoutMs());
+}
+
+function getMaxAttempts() {
+  const configured = Number.parseInt(process.env.LLM_MAX_ATTEMPTS || '2', 10);
+  return Number.isFinite(configured) ? Math.min(Math.max(configured, 1), 2) : 2;
+}
+
 function withTimeout(operation, timeoutMs, label) {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
@@ -83,7 +96,7 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
     }
 
     const startTime = Date.now();
-    const maxRetries = 3;
+    const maxRetries = getMaxAttempts();
     const baseDelayMs = 1000;
 
     // Retry loop for transient errors
@@ -107,7 +120,7 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
         }
 
         const controller = new AbortController();
-        const requestTimeoutMs = getRequestTimeoutMs();
+        const requestTimeoutMs = getAttemptTimeoutMs();
         const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
         let response;
         try {
@@ -166,11 +179,17 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
         const latency = Date.now() - startTime;
         
         if (error.name === 'AbortError') {
-          const requestTimeoutMs = getRequestTimeoutMs();
+          const requestTimeoutMs = getAttemptTimeoutMs();
           console.error(`✗ ${this.name} request timed out after ${requestTimeoutMs}ms`);
           const timeoutError = new Error(`${this.name} API request timed out after ${requestTimeoutMs}ms. The model may be overloaded or slow to respond.`);
           timeoutError.name = 'TimeoutError';
-          throw timeoutError;
+          if (attempt === maxRetries) {
+            throw timeoutError;
+          }
+          const delay = baseDelayMs * Math.pow(2, attempt - 1);
+          console.warn(`⏳ ${this.name} request timed out; retrying once in ${delay}ms (attempt ${attempt}/${maxRetries})...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
         }
         
         // Check if this is a transient error
