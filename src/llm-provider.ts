@@ -68,7 +68,9 @@ class BackendProxyProvider implements LLMProvider {
         
         // CRITICAL: If backend returns LIVE_AI_ERROR, DO NOT silently fall back to mock
         if (error.error === 'LIVE_AI_ERROR') {
-          throw new Error(`LIVE AI ERROR: ${error.message}. Backend Gemini call failed.`);
+          // The backend can use Gemini, NVIDIA NIM, or any configured
+          // OpenAI-compatible provider; keep diagnostics provider-neutral.
+          throw new Error(`LIVE AI ERROR: ${error.message}. Backend provider call failed.`);
         }
         
         throw new Error(`Backend API error (${latency}ms): ${JSON.stringify(error)}`);

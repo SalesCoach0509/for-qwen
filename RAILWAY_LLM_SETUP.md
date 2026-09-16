@@ -19,6 +19,10 @@ LLM_MODEL=<model id>
 LLM_BASE_URL=https://<provider-host>/v1
 ```
 
+For NVIDIA NIM structured-output workloads, use `openai/gpt-oss-20b` with
+`https://integrate.api.nvidia.com/v1`. It supports OpenAI-compatible structured
+output; do not use the Nemotron Lightning model for this validation gate.
+
 ## Fallback provider
 
 For a second Gemini model using the same key:
