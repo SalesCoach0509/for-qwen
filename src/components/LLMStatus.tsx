@@ -20,11 +20,15 @@ export default function LLMStatus() {
           isLive: true,
         });
       } else {
-        console.log('⚠️ LLMStatus: Backend is NOT available, using Demo mode');
+        console.log('⚠️ LLMStatus: Backend is NOT available');
+        setLLMAvailable(false);
+        setInfo({ name: 'Unavailable', model: '', isLive: false });
       }
       setChecking(false);
     }).catch((error) => {
       console.error('❌ LLMStatus: Backend health check failed:', error);
+      setLLMAvailable(false);
+      setInfo({ name: 'Unavailable', model: '', isLive: false });
       setChecking(false);
     });
   }, []);
@@ -48,9 +52,9 @@ export default function LLMStatus() {
   }
 
   return (
-    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200" title="Running in demo mode with simulated responses. Backend not available or GEMINI_API_KEY not configured.">
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200" title="Live AI is currently unavailable. Retry the action when the provider recovers.">
       <WifiOff size={10} />
-      <span>Demo Mode</span>
+      <span>AI Unavailable</span>
     </div>
   );
 }

@@ -351,12 +351,23 @@ export async function validatePreparationQuality(): Promise<BriefQualityResult[]
 
   for (const type of interactionTypes) {
     console.log(`\nTesting: ${type}`);
-    const interaction = createTestInteraction(type);
-    // Personalization can only be assessed when the test supplies the same
-    // capability history that a real employee would have.
-    const brief = await generateBrief(interaction, createValidationCapabilityHistory());
-    
-    const result = evaluateBriefQuality(brief, interaction, type);
+    let result: BriefQualityResult;
+    try {
+      const interaction = createTestInteraction(type);
+      // Personalization can only be assessed when the test supplies the same
+      // capability history that a real employee would have.
+      const brief = await generateBrief(interaction, createValidationCapabilityHistory());
+      result = evaluateBriefQuality(brief, interaction, type);
+    } catch (error) {
+      // Record a provider failure for this case and continue. A transient
+      // upstream timeout must not prevent the later gates from being measured.
+      console.error(`  ✗ ${type} could not be evaluated:`, error);
+      result = {
+        interactionType: type, specificity: 0, relevance: 0, factualGrounding: 0,
+        actionability: 0, concision: 0, hallucinations: ['Provider request failed'],
+        unknownsHandled: false, personalized: false, passed: false,
+      };
+    }
     results.push(result);
     
     console.log(`  Specificity: ${result.specificity}/5`);
@@ -603,21 +614,31 @@ export async function runObjectionHandlingBenchmark(): Promise<BenchmarkResult[]
     // Run evaluation 3 times for consistency
     const scores: number[] = [];
     const evaluations: PracticeEvaluation[] = [];
-    
-    for (let i = 0; i < 3; i++) {
-      const evaluation = await generatePracticeEvaluation(
-        [
-          { role: 'ai', content: testCase.stakeholderObjection },
-          { role: 'user', content: testCase.employeeResponse },
-        ],
-        { stakeholderRole: 'Buyer', personality: 'Direct', pressureLevel: 'medium', objectives: [], likelyObjections: [], commercialConstraints: '', hiddenPriorities: [], desiredOutcome: '' }
-      );
-      
-      const ohScore = evaluation.capabilityScores.find(c => c.capability === 'Objection Handling');
-      if (ohScore) {
-        scores.push(ohScore.score);
-        evaluations.push(evaluation);
+    try {
+      for (let i = 0; i < 3; i++) {
+        const evaluation = await generatePracticeEvaluation(
+          [
+            { role: 'ai', content: testCase.stakeholderObjection },
+            { role: 'user', content: testCase.employeeResponse },
+          ],
+          { stakeholderRole: 'Buyer', personality: 'Direct', pressureLevel: 'medium', objectives: [], likelyObjections: [], commercialConstraints: '', hiddenPriorities: [], desiredOutcome: '' }
+        );
+        
+        const ohScore = evaluation.capabilityScores.find(c => c.capability === 'Objection Handling');
+        if (ohScore) {
+          scores.push(ohScore.score);
+          evaluations.push(evaluation);
+        }
       }
+    } catch (error) {
+      console.error(`  ✗ ${testCase.id} could not be evaluated:`, error);
+      results.push({
+        caseId: testCase.id, expectedRange: testCase.expectedRange, actualScore: 0,
+        inRange: false, evidenceGrounded: false, falseEvidence: ['Provider request failed'],
+        scoreInflation: false, scoreDeflation: false, consistencyScore: 0,
+        confidenceCalibration: 0,
+      });
+      continue;
     }
 
     if (scores.length === 0) {
@@ -1014,7 +1035,7 @@ export async function runFullValidation(): Promise<void> {
   
   if (!health.available) {
     console.error('❌ Backend not available. Cannot run live validation.');
-    console.error('Please ensure the backend is running and GEMINI_API_KEY is configured.');
+    console.error('Please ensure the backend is running and LLM_API_KEY is configured.');
     return;
   }
   
@@ -1057,17 +1078,25 @@ export async function runFullValidation(): Promise<void> {
     console.log('To test with real LLM, configure backend with LLM_API_KEY\n');
   }
 
-  // Gate 2: Preparation Quality
-  const briefResults = await validatePreparationQuality();
+  // Continue through the full suite even if an external provider stalls in one
+  // gate. The final summary then reports the failed gate instead of masking all
+  // later results behind a single timeout.
+  let briefResults: BriefQualityResult[] = [];
+  let benchmarkResults: BenchmarkResult[] = [];
+  let traceabilityResult: TraceabilityResult = {
+    assessmentCount: 0, assessmentsWithEvidence: 0, evidenceWithSource: 0,
+    orphanedScores: 0, fabricatedEvidence: 0, passed: false,
+  };
+  let adversarialResults: AdversarialResult[] = [];
 
-  // Gate 3: Objection Handling Benchmark
-  const benchmarkResults = await runObjectionHandlingBenchmark();
-
-  // Gate 4: Evidence Traceability
-  const traceabilityResult = await validateEvidenceTraceability();
-
-  // Gate 5: Adversarial Testing
-  const adversarialResults = await runAdversarialTests();
+  try { briefResults = await validatePreparationQuality(); }
+  catch (error) { console.error('⚠️ GATE 2 stopped by provider failure:', error); }
+  try { benchmarkResults = await runObjectionHandlingBenchmark(); }
+  catch (error) { console.error('⚠️ GATE 3 stopped by provider failure:', error); }
+  try { traceabilityResult = await validateEvidenceTraceability(); }
+  catch (error) { console.error('⚠️ GATE 4 stopped by provider failure:', error); }
+  try { adversarialResults = await runAdversarialTests(); }
+  catch (error) { console.error('⚠️ GATE 5 stopped by provider failure:', error); }
 
   // Final Summary
   console.log('\n╔═══════════════════════════════════════════════════════════╗');

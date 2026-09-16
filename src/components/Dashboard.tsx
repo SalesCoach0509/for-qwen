@@ -1,6 +1,7 @@
 
 import { AppState } from '../types';
 import { store } from '../store';
+import LLMStatus from './LLMStatus';
 
 type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap' | 'validation' | 'demo';
 
@@ -32,12 +33,15 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
               <h1 className="text-2xl font-bold text-gray-900">AI Performance Coach</h1>
               <p className="text-sm text-gray-600">Welcome back, {user?.name}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-            >
-              Sign Out
-            </button>
+            <div className="flex items-center gap-3">
+              <LLMStatus />
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -100,7 +104,7 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
                   <div className="flex gap-2">
                     {interaction.status === 'upcoming' && (
                       <button
-                        onClick={() => navigate('brief')}
+                        onClick={() => navigate('brief', interaction.id)}
                         className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
                       >
                         Prepare
@@ -108,7 +112,7 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
                     )}
                     {interaction.status === 'prepared' && (
                       <button
-                        onClick={() => navigate('roleplay')}
+                        onClick={() => navigate('roleplay', interaction.id)}
                         className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
                       >
                         Practice
@@ -141,7 +145,7 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
                     </p>
                   </div>
                   <button
-                    onClick={() => navigate('post')}
+                    onClick={() => navigate('post', interaction.id)}
                     className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     View Analysis
