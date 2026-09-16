@@ -36,7 +36,7 @@ interface LiveProbeResult {
 }
 
 const BACKEND_STATUS_TIMEOUT_MS = Number(import.meta.env.VITE_BACKEND_STATUS_TIMEOUT_MS || '5000');
-const LLM_DIAGNOSTIC_TIMEOUT_MS = Number(import.meta.env.VITE_LLM_DIAGNOSTIC_TIMEOUT_MS || '95000');
+const LLM_DIAGNOSTIC_TIMEOUT_MS = Number(import.meta.env.VITE_LLM_DIAGNOSTIC_TIMEOUT_MS || '125000');
 
 function getBackendUrl(): string {
   const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);

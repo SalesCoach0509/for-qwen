@@ -6,8 +6,8 @@
  */
 
 function getRequestTimeoutMs() {
-  const value = Number.parseInt(process.env.LLM_REQUEST_TIMEOUT_MS || '60000', 10);
-  return Number.isFinite(value) && value > 0 ? value : 60000;
+  const value = Number.parseInt(process.env.LLM_REQUEST_TIMEOUT_MS || '90000', 10);
+  return Number.isFinite(value) && value > 0 ? value : 90000;
 }
 
 function withTimeout(operation, timeoutMs, label) {
@@ -178,7 +178,6 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
         const isTransient = 
           errorMessage.includes('503') ||
           errorMessage.includes('429') ||
-          errorMessage.includes('timeout') ||
           errorMessage.includes('TEMPORARILY_UNAVAILABLE');
         
         if (!isTransient || attempt === maxRetries) {
@@ -280,7 +279,6 @@ export class GeminiAdapter extends BaseProviderAdapter {
         const isTransient = 
           errorMessage.includes('503') ||
           errorMessage.includes('429') ||
-          errorMessage.includes('timeout') ||
           errorMessage.includes('TEMPORARILY_UNAVAILABLE') ||
           errorMessage.includes('high demand');
         

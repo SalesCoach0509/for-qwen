@@ -9,7 +9,7 @@ const BACKEND_URL = isLocalDevelopment
   ? 'http://localhost:3001'
   : '';
 const BACKEND_STATUS_TIMEOUT_MS = Number(import.meta.env.VITE_BACKEND_STATUS_TIMEOUT_MS || '5000');
-const AI_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_AI_REQUEST_TIMEOUT_MS || '95000');
+const AI_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_AI_REQUEST_TIMEOUT_MS || '125000');
 
 console.log('🔍 BACKEND_URL:', BACKEND_URL);
 console.log('🔍 window.location.hostname:', typeof window !== 'undefined' ? window.location.hostname : 'N/A');

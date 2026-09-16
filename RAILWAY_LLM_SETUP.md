@@ -42,11 +42,11 @@ Never place provider keys in `VITE_*` variables. After saving variables, redeplo
 ## Timeout variables
 
 ```text
-LLM_REQUEST_TIMEOUT_MS=60000
-LLM_DIAGNOSTIC_TIMEOUT_MS=90000
+LLM_REQUEST_TIMEOUT_MS=90000
+LLM_DIAGNOSTIC_TIMEOUT_MS=120000
 VITE_BACKEND_STATUS_TIMEOUT_MS=5000
-VITE_LLM_DIAGNOSTIC_TIMEOUT_MS=95000
-VITE_AI_REQUEST_TIMEOUT_MS=95000
+VITE_LLM_DIAGNOSTIC_TIMEOUT_MS=125000
+VITE_AI_REQUEST_TIMEOUT_MS=125000
 ```
 
 `GET /api/health` and `GET /api/diagnostic` are fast status-only calls. Gate 1 performs its real provider check through `POST /api/diagnostic/llm-test`, where the longer diagnostic timeout applies. This prevents a slow LLM call from being aborted by the five-second status timeout.

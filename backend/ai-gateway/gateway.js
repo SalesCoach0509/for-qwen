@@ -71,18 +71,14 @@ class AIGateway {
       return await this.provider.generate(messages, options);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const isTransient = /\b(?:429|500|502|503|504)\b|timeout|temporarily.unavailable|service unavailable|high demand/i.test(message);
+      const isTransient = /\b(?:429|500|502|503|504)\b|temporarily.unavailable|service unavailable|high demand/i.test(message);
 
       if (!isTransient || !this.fallback || this.provider === this.fallback.provider) {
         throw error;
       }
 
-      console.warn(`Primary provider unavailable; switching to fallback ${this.fallback.provider.getName()}/${this.fallback.model}.`);
-      this.provider = this.fallback.provider;
-      this.model = this.fallback.model;
-      this.capabilities = this.fallback.capabilities;
-      this.maxContext = this.fallback.maxContext;
-      return await this.provider.generate(messages, options);
+      console.warn(`Primary provider unavailable; using fallback ${this.fallback.provider.getName()}/${this.fallback.model} for this request.`);
+      return await this.fallback.provider.generate(messages, options);
     }
   }
 

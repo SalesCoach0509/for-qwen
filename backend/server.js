@@ -75,7 +75,7 @@ let lastProviderStatus = 'UNKNOWN';
 let lastProviderCallStatus = null;
 let lastProviderCallTimestamp = null;
 
-const diagnosticTimeoutMs = Number.parseInt(process.env.LLM_DIAGNOSTIC_TIMEOUT_MS || '90000', 10);
+const diagnosticTimeoutMs = Number.parseInt(process.env.LLM_DIAGNOSTIC_TIMEOUT_MS || '120000', 10);
 
 function recordProviderSuccess() {
   lastProviderStatus = 'READY';
