@@ -43,7 +43,7 @@ try {
   console.error('Example for Gemini:');
   console.error('  LLM_PROVIDER=gemini');
   console.error('  LLM_API_KEY=your-gemini-key');
-  console.error('  LLM_MODEL=gemini-2.5-flash');
+  console.error('  LLM_MODEL=gemini-3.6-flash');
   console.error('');
   console.error('Example for NVIDIA NIM:');
   console.error('  LLM_PROVIDER=nvidia-nim');
@@ -262,7 +262,7 @@ app.get('/api/diagnostic', (req, res) => {
       NODE_ENV: process.env.NODE_ENV,
       PORT: process.env.PORT,
       LLM_PROVIDER: process.env.LLM_PROVIDER || 'gemini',
-      LLM_MODEL: process.env.LLM_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      LLM_MODEL: process.env.LLM_MODEL || process.env.GEMINI_MODEL || 'gemini-3.6-flash',
       LLM_API_KEY_set: !!(process.env.LLM_API_KEY || process.env.GEMINI_API_KEY),
       LLM_API_KEY_length: (process.env.LLM_API_KEY || process.env.GEMINI_API_KEY)?.length || 0,
     },

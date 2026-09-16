@@ -203,7 +203,7 @@ export class GeminiAdapter extends BaseProviderAdapter {
     super(config);
     this.name = 'gemini';
     this.apiKey = config.apiKey;
-    this.model = config.model || 'gemini-2.5-flash';
+    this.model = config.model || 'gemini-3.6-flash';
     this.genAI = null;
     this.modelInstance = null;
   }

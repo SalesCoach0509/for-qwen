@@ -30,9 +30,9 @@ export const ModelCapabilities = {
  */
 export const MODEL_CAPABILITY_REGISTRY = {
   // Google Gemini models
-  'gemini-2.5-flash': {
+  'gemini-3.6-flash': {
     provider: 'gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.6-flash',
     capabilities: [
       ModelCapabilities.TEXT_GENERATION,
       ModelCapabilities.STRUCTURED_OUTPUT,

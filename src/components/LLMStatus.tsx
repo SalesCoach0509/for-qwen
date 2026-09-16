@@ -16,7 +16,7 @@ export default function LLMStatus() {
         setLLMAvailable(true, health.provider, health.model);
         setInfo({
           name: health.provider || 'Gemini',
-          model: health.model || 'gemini-2.5-flash',
+          model: health.model || 'gemini-3.6-flash',
           isLive: true,
         });
       } else {

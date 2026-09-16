@@ -305,6 +305,12 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
   console.log(`Average Latency: ${result.avgLatencyMs.toFixed(0)}ms`);
   console.log(`Failures: ${result.failures.length}`);
 
+  if (result.structuredOutputSuccess !== result.structuredOutputTotal) {
+    result.blocked = true;
+    result.blockedReason = `Gate 1 failed: ${result.structuredOutputSuccess}/${result.structuredOutputTotal} structured operations succeeded.`;
+    console.error(`✗ ${result.blockedReason}`);
+  }
+
   return result;
 }
 

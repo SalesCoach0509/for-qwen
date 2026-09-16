@@ -25,7 +25,7 @@ For a second Gemini model using the same key:
 
 ```text
 LLM_FALLBACK_PROVIDER=gemini
-LLM_FALLBACK_MODEL=gemini-2.5-flash
+LLM_FALLBACK_MODEL=gemini-3.6-flash
 ```
 
 For a separate OpenAI-compatible provider:

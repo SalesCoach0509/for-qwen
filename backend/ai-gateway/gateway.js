@@ -126,7 +126,7 @@ export const aiGateway = new AIGateway();
 export function initializeGatewayFromEnv() {
   const provider = process.env.LLM_PROVIDER || 'gemini';
   const apiKey = process.env.LLM_API_KEY || process.env.GEMINI_API_KEY;
-  const model = process.env.LLM_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = process.env.LLM_MODEL || process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   const baseUrl = process.env.LLM_BASE_URL;
   const capabilities = (process.env.LLM_CAPABILITIES || [
     ModelCapabilities.TEXT_GENERATION,

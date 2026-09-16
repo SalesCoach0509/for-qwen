@@ -214,7 +214,7 @@ export function setLLMAvailable(available: boolean, provider?: string, model?: s
   _isLLMAvailable = available;
   _providerInfo = {
     name: provider || 'Gemini',
-    model: model || 'gemini-2.5-flash',
+    model: model || 'gemini-3.6-flash',
     isLive: available,
   };
 }
@@ -229,7 +229,7 @@ export function getProviderInfo(): { name: string; model: string; isLive: boolea
   // Default values
   return {
     name: 'Gemini',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.6-flash',
     isLive: false,
   };
 }
