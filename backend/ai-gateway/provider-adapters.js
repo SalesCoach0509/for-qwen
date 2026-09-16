@@ -195,9 +195,6 @@ export class GeminiAdapter extends BaseProviderAdapter {
       this.genAI = new GoogleGenerativeAI(this.apiKey);
       this.modelInstance = this.genAI.getGenerativeModel({
         model: this.model,
-        generationConfig: {
-          responseMimeType: 'application/json',
-        },
       });
     }
   }

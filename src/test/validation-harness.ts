@@ -99,11 +99,34 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
     console.log(`Model: ${result.model}`);
     console.log(`Live Mode: ${result.isLiveMode}`);
     console.log(`Provider Status: ${result.providerStatus}`);
-  } catch (error) {
-    console.error('✗ Failed to get backend diagnostic:', error);
-    result.failures.push(`Failed to connect to backend: ${error}`);
+  } catch (error: any) {
+    // Properly extract error information
+    let errorMessage = 'Unknown error';
+    let errorName = 'Unknown';
+    let errorDetails = '';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorName = error.name;
+      errorDetails = error.stack || '';
+    } else if (typeof error === 'object' && error !== null) {
+      errorMessage = error.message || error.error || JSON.stringify(error);
+      errorName = error.name || 'Object';
+      errorDetails = JSON.stringify(error, null, 2);
+    } else {
+      errorMessage = String(error);
+    }
+    
+    console.error('✗ Failed to get backend diagnostic:');
+    console.error(`  Error name: ${errorName}`);
+    console.error(`  Error message: ${errorMessage}`);
+    if (errorDetails) {
+      console.error(`  Error details: ${errorDetails.substring(0, 500)}`);
+    }
+    
+    result.failures.push(`Failed to get backend diagnostic: ${errorMessage}`);
     result.blocked = true;
-    result.blockedReason = 'Backend unreachable';
+    result.blockedReason = `Backend diagnostic failed: ${errorMessage}`;
     return result;
   }
 
@@ -143,8 +166,9 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       result.failures.push('Brief generation returned invalid structure');
       console.error('✗ Brief generation: INVALID STRUCTURE');
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : 'Unknown';
     
     // Check if this is a provider availability issue
     if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
@@ -154,8 +178,13 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       return result;
     }
     
-    result.failures.push(`Brief generation failed: ${error}`);
-    console.error('✗ Brief generation: FAILED', error);
+    result.failures.push(`Brief generation failed: ${errorMessage}`);
+    console.error('✗ Brief generation: FAILED');
+    console.error(`  Error name: ${errorName}`);
+    console.error(`  Error message: ${errorMessage}`);
+    if (error.stack) {
+      console.error(`  Error stack: ${error.stack.substring(0, 300)}`);
+    }
   }
 
   // Test practice evaluation
@@ -177,8 +206,9 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       result.failures.push('Practice evaluation returned invalid structure');
       console.error('✗ Practice evaluation: INVALID STRUCTURE');
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : 'Unknown';
     
     // Check if this is a provider availability issue
     if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
@@ -188,8 +218,13 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       return result;
     }
     
-    result.failures.push(`Practice evaluation failed: ${error}`);
-    console.error('✗ Practice evaluation: FAILED', error);
+    result.failures.push(`Practice evaluation failed: ${errorMessage}`);
+    console.error('✗ Practice evaluation: FAILED');
+    console.error(`  Error name: ${errorName}`);
+    console.error(`  Error message: ${errorMessage}`);
+    if (error.stack) {
+      console.error(`  Error stack: ${error.stack.substring(0, 300)}`);
+    }
   }
 
   // Test transcript analysis
@@ -209,8 +244,9 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       result.failures.push('Transcript analysis returned invalid structure');
       console.error('✗ Transcript analysis: INVALID STRUCTURE');
     }
-  } catch (error) {
+  } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : 'Unknown';
     
     // Check if this is a provider availability issue
     if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
@@ -220,8 +256,13 @@ export async function verifyLLMIntegration(): Promise<LLMVerificationResult> {
       return result;
     }
     
-    result.failures.push(`Transcript analysis failed: ${error}`);
-    console.error('✗ Transcript analysis: FAILED', error);
+    result.failures.push(`Transcript analysis failed: ${errorMessage}`);
+    console.error('✗ Transcript analysis: FAILED');
+    console.error(`  Error name: ${errorName}`);
+    console.error(`  Error message: ${errorMessage}`);
+    if (error.stack) {
+      console.error(`  Error stack: ${error.stack.substring(0, 300)}`);
+    }
   }
 
   const totalTime = Date.now() - startTime;

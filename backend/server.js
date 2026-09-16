@@ -23,6 +23,7 @@ app.use(express.json({ limit: '10mb' }));
 
 // Initialize AI Gateway
 let aiGateway;
+let gatewayInitializationError = null;
 try {
   aiGateway = initializeGatewayFromEnv();
   const info = aiGateway.getInfo();
@@ -31,6 +32,7 @@ try {
   console.log(`   Model: ${info.model}`);
   console.log(`   Capabilities: ${info.capabilities.join(', ')}`);
 } catch (error) {
+  gatewayInitializationError = error.message;
   console.error('❌ Failed to initialize AI Gateway:', error.message);
   console.error('');
   console.error('Required environment variables:');
@@ -47,7 +49,7 @@ try {
   console.error('  LLM_PROVIDER=nvidia-nim');
   console.error('  LLM_API_KEY=your-nvidia-key');
   console.error('  LLM_MODEL=deepseek-v4-pro');
-  process.exit(1);
+  aiGateway = getAIGateway();
 }
 
 // Health check
@@ -56,13 +58,14 @@ app.get('/api/health', (req, res) => {
   const gatewayInfo = aiGateway.getInfo();
   console.log('🔍 Gateway info:', gatewayInfo);
   res.json({ 
-    status: 'ok', 
+    status: gatewayInfo.initialized ? 'ok' : 'degraded', 
     provider: gatewayInfo.provider,
     model: gatewayInfo.model,
     capabilities: gatewayInfo.capabilities,
     maxContext: gatewayInfo.maxContext,
     mode: 'live',
     apiKeySet: gatewayInfo.initialized,
+    initializationError: gatewayInitializationError || undefined,
     timestamp: new Date().toISOString()
   });
 });
@@ -704,8 +707,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('='.repeat(60));
   console.log(`📡 Provider: ${info.provider}`);
   console.log(`🤖 Model: ${info.model}`);
-  console.log(`🎯 Capabilities: ${info.capabilities.join(', ')}`);
-  console.log(`📏 Max Context: ${info.maxContext.toLocaleString()} tokens`);
+  console.log(`🎯 Capabilities: ${(info.capabilities || []).join(', ') || 'unavailable'}`);
+  console.log(`📏 Max Context: ${info.maxContext ? info.maxContext.toLocaleString() : 'unavailable'} tokens`);
   console.log(`🔑 API Key: ${info.apiKeySet ? '✅ SET' : '❌ NOT SET'}`);
   console.log(`🔒 Mode: LIVE AI (API key secured server-side)`);
   console.log(`🌐 Port: ${PORT}`);
