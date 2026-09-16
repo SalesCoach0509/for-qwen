@@ -83,7 +83,8 @@ class BackendProxyProvider implements LLMProvider {
       };
     } catch (error) {
       const latency = Date.now() - startTime;
-      console.error(`✗ Backend call failed after ${latency}ms:`, error);
+      const details = error instanceof Error ? error.message : JSON.stringify(error);
+      console.error(`✗ Backend call failed after ${latency}ms: ${details}`);
       
       // CRITICAL: Re-throw the error. Do NOT silently fall back to mock.
       throw error;
@@ -151,7 +152,8 @@ export class RoleplayProvider {
       };
     } catch (error) {
       const latency = Date.now() - startTime;
-      console.error(`✗ Roleplay backend call failed after ${latency}ms:`, error);
+      const details = error instanceof Error ? error.message : JSON.stringify(error);
+      console.error(`✗ Roleplay backend call failed after ${latency}ms: ${details}`);
       throw error;
     }
   }

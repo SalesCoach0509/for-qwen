@@ -20,7 +20,7 @@ class AIGateway {
    * Initialize the gateway with provider configuration
    */
   initialize(config) {
-    const { provider, apiKey, model, baseUrl, capabilities, maxContext } = config;
+    const { provider, apiKey, model, baseUrl, capabilities, maxContext, fallback } = config;
 
     if (!provider || !apiKey || !model) {
       throw new Error('AI Gateway requires provider, apiKey, and model configuration');
@@ -36,6 +36,17 @@ class AIGateway {
     this.model = model;
     this.capabilities = capabilities;
     this.maxContext = maxContext;
+    this.fallback = null;
+
+    if (fallback?.provider && fallback?.apiKey && fallback?.model) {
+      this.fallback = {
+        provider: createProviderAdapter(fallback),
+        model: fallback.model,
+        capabilities: fallback.capabilities || capabilities,
+        maxContext: fallback.maxContext || maxContext,
+      };
+      console.log(`✅ AI fallback configured: ${fallback.provider}/${fallback.model}`);
+    }
     this.initialized = true;
 
     console.log(`✅ AI Gateway initialized with ${provider}/${model}`);
@@ -56,8 +67,23 @@ class AIGateway {
       throw new Error('AI Gateway not initialized. Call initialize() first.');
     }
 
-    // Execute generation
-    return await this.provider.generate(messages, options);
+    try {
+      return await this.provider.generate(messages, options);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isTransient = /\b(?:429|500|502|503|504)\b|timeout|temporarily.unavailable|service unavailable|high demand/i.test(message);
+
+      if (!isTransient || !this.fallback || this.provider === this.fallback.provider) {
+        throw error;
+      }
+
+      console.warn(`Primary provider unavailable; switching to fallback ${this.fallback.provider.getName()}/${this.fallback.model}.`);
+      this.provider = this.fallback.provider;
+      this.model = this.fallback.model;
+      this.capabilities = this.fallback.capabilities;
+      this.maxContext = this.fallback.maxContext;
+      return await this.provider.generate(messages, options);
+    }
   }
 
   /**
@@ -111,6 +137,12 @@ export function initializeGatewayFromEnv() {
     .map(capability => capability.trim())
     .filter(Boolean);
   const maxContext = Number.parseInt(process.env.LLM_MAX_CONTEXT || '', 10) || null;
+  const fallbackProvider = process.env.LLM_FALLBACK_PROVIDER;
+  const fallbackApiKey = process.env.LLM_FALLBACK_API_KEY || apiKey;
+  const fallbackModel = process.env.LLM_FALLBACK_MODEL;
+  const fallbackBaseUrl = process.env.LLM_FALLBACK_BASE_URL || baseUrl;
+  const fallbackCapabilities = (process.env.LLM_FALLBACK_CAPABILITIES || process.env.LLM_CAPABILITIES || '').split(',').map(value => value.trim()).filter(Boolean);
+  const fallbackMaxContext = Number.parseInt(process.env.LLM_FALLBACK_MAX_CONTEXT || '', 10) || null;
 
   if (!apiKey) {
     throw new Error('LLM_API_KEY or GEMINI_API_KEY environment variable is required');
@@ -123,6 +155,14 @@ export function initializeGatewayFromEnv() {
     baseUrl,
     capabilities,
     maxContext,
+    fallback: fallbackProvider && fallbackModel ? {
+      provider: fallbackProvider,
+      apiKey: fallbackApiKey,
+      model: fallbackModel,
+      baseUrl: fallbackBaseUrl,
+      capabilities: fallbackCapabilities,
+      maxContext: fallbackMaxContext,
+    } : null,
   });
 
   return aiGateway;

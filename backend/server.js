@@ -71,7 +71,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Track provider status globally
-let lastProviderStatus = 'READY';
+let lastProviderStatus = 'UNKNOWN';
 let lastProviderCallStatus = null;
 let lastProviderCallTimestamp = null;
 
@@ -256,15 +256,30 @@ app.get('/api/diagnostic', async (req, res) => {
       usage: testResult.usage,
       timestamp: new Date().toISOString()
     };
+    lastProviderStatus = 'READY';
+    lastProviderCallStatus = 'SUCCESS';
+    lastProviderCallTimestamp = diagnostic.tests.gatewayConnection.timestamp;
+    diagnostic.providerStatus = lastProviderStatus;
+    diagnostic.lastCallStatus = lastProviderCallStatus;
+    diagnostic.lastCallTimestamp = lastProviderCallTimestamp;
     console.log('✅ Diagnostic test passed');
   } catch (error) {
     console.error('❌ Diagnostic test failed:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    lastProviderStatus = /\b(?:429|503)\b|temporarily.unavailable|high demand/i.test(errorMessage)
+      ? 'TEMPORARILY_UNAVAILABLE'
+      : 'ERROR';
+    lastProviderCallStatus = lastProviderStatus === 'TEMPORARILY_UNAVAILABLE' ? 'UNAVAILABLE' : 'ERROR';
+    lastProviderCallTimestamp = new Date().toISOString();
     diagnostic.tests.gatewayConnection = {
       success: false,
-      error: error.message,
-      name: error.name,
-      timestamp: new Date().toISOString()
+      error: errorMessage,
+      name: error instanceof Error ? error.name : 'Error',
+      timestamp: lastProviderCallTimestamp
     };
+    diagnostic.providerStatus = lastProviderStatus;
+    diagnostic.lastCallStatus = lastProviderCallStatus;
+    diagnostic.lastCallTimestamp = lastProviderCallTimestamp;
   }
 
   res.json(diagnostic);
