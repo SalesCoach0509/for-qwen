@@ -5,6 +5,7 @@ import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import CreateInteraction from './components/CreateInteraction';
 import PerformanceBrief from './components/PerformanceBrief';
+import { ScenarioPlanner } from './components/ScenarioPlanner';
 import Roleplay from './components/Roleplay';
 import PracticeResults from './components/PracticeResults';
 import UploadTranscript from './components/UploadTranscript';
@@ -14,7 +15,7 @@ import Roadmap from './components/Roadmap';
 import ValidationPanel from './components/ValidationPanel';
 import BeforeAfterDemo from './components/BeforeAfterDemo';
 
-type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap' | 'validation' | 'demo';
+type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap' | 'validation' | 'demo';
 
 function App() {
   const [state, setState] = useState<AppState>(store.getState());
@@ -48,6 +49,8 @@ function App() {
       return <CreateInteraction state={state} navigate={navigate} />;
     case 'brief':
       return <PerformanceBrief state={state} interactionId={activeInteractionId} navigate={navigate} />;
+    case 'scenario':
+      return <ScenarioPlanner state={state} interactionId={activeInteractionId || undefined} navigate={navigate} />;
     case 'roleplay':
       return <Roleplay state={state} interactionId={activeInteractionId} navigate={navigate} />;
     case 'results':

@@ -5,7 +5,7 @@ import { analyzeTranscript } from '../ai-service';
 import { updateCapabilityHistory } from '../capability-memory';
 import { ArrowLeft, Target, CheckCircle, AlertCircle, TrendingUp, ArrowRight, Play, BarChart3, Zap, AlertTriangle } from 'lucide-react';
 
-type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
+type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
 
 interface Props {
   state: AppState;
@@ -294,7 +294,7 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => navigate('roleplay', interactionId || undefined)}
+              onClick={() => navigate('scenario', interactionId || undefined)}
               className="px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
             >
               <Play size={16} />

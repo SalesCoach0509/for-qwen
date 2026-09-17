@@ -329,6 +329,9 @@ function parseJsonObject(text) {
 
 function getRequiredStructuredFields(messages) {
   const prompt = messages.map(message => message.content || '').join('\n');
+  if (prompt.includes('"scenarioTitle"') && prompt.includes('"objectionLadder"')) {
+    return ['scenarioTitle', 'stakeholderRole', 'personality', 'pressureLevel', 'objectives', 'likelyObjections', 'commercialConstraints', 'hiddenPriorities', 'desiredOutcome', 'knownFacts', 'unknowns', 'objectionLadder', 'triggerConditions', 'requiredBehaviors', 'forbiddenMoves'];
+  }
   if (prompt.includes('"commercialGuidance"') && prompt.includes('"stakeholderPriorities"')) {
     return ['objective', 'stakeholderPriorities', 'relevantContext', 'commercialGuidance', 'likelyObjections', 'recommendedQuestions', 'recommendedPositioning', 'thingsToAvoid', 'personalCoachingFocus', 'practiceRecommendation'];
   }
@@ -709,8 +712,20 @@ Profile: ${config.personality}; pressure: ${config.pressureLevel}.
 Objectives: ${config.objectives?.join(', ') || 'Negotiate effectively'}.
 Likely objections: ${config.likelyObjections?.join(', ') || 'Price, timing, competition'}.
 Constraints: ${config.commercialConstraints || 'Budget constraints'}.
+Module: ${config.module || 'General sales practice'}.
+Scenario: ${config.scenarioTitle || 'Not provided'}.
+Known facts you may safely reference: ${config.knownFacts?.join(' | ') || 'None provided'}.
+Important unknowns: ${config.unknowns?.join(' | ') || 'None provided'}.
+Objection ladder: ${config.objectionLadder?.join(' | ') || config.likelyObjections?.join(' | ') || 'Price, timing, competition'}.
+Escalation triggers: ${config.triggerConditions?.join(' | ') || 'Use only after the seller earns the next stage'}.
 
-Stay in character. Reply only with what the stakeholder would say: 1-2 concise sentences, no reasoning, labels, instructions, or meta-commentary.`
+Pressure behavior: ${config.pressureLevel === 'high'
+  ? 'Be time-constrained and demanding. Ask for evidence, challenge unsupported value claims, and raise the next trade-off only after the seller addresses the current one.'
+  : config.pressureLevel === 'low'
+    ? 'Be collaborative. Share useful context after a relevant, specific question and raise one manageable concern at a time.'
+    : 'Be constructively skeptical. Require specificity, test one concern at a time, and reveal more context after the seller demonstrates understanding.'}
+
+Stay in character. Use the objection ladder progressively; do not introduce several objections at once. Never claim an unknown is a fact: ask a discovery question when it matters. Reply only with what the stakeholder would say: 1-2 concise sentences, no reasoning, labels, instructions, or meta-commentary.`
       },
       // The frontend stores model turns as "ai"; OpenAI-compatible providers
       // require the wire-format role "assistant".

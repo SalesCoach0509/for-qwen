@@ -3,7 +3,7 @@ import { AppState } from '../types';
 import { store } from '../store';
 import LLMStatus from './LLMStatus';
 
-type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap' | 'validation' | 'demo';
+type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap' | 'validation' | 'demo';
 
 interface DashboardProps {
   state: AppState;
@@ -112,7 +112,7 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
                     )}
                     {interaction.status === 'prepared' && (
                       <button
-                        onClick={() => navigate('roleplay', interaction.id)}
+                        onClick={() => navigate('scenario', interaction.id)}
                         className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
                       >
                         Practice

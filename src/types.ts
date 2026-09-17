@@ -82,8 +82,34 @@ export interface Interaction {
   agenda: string;
   notes?: string;
   additionalContext?: string;
+  scenarioPlan?: ScenarioPlan;
   status: 'upcoming' | 'prepared' | 'practiced' | 'performed' | 'analyzed';
   createdAt: string;
+}
+
+export type PracticeModule =
+  | 'discovery'
+  | 'negotiation'
+  | 'renewal-expansion';
+
+export interface DealIntelligence {
+  module: PracticeModule;
+  dealStage: string;
+  dealValue: string;
+  contractTerm: string;
+  solution: string;
+  buyerRole: string;
+  buyerContext: string;
+  triggerEvent: string;
+  businessImpact: string;
+  stakeholderMap: string;
+  competition: string;
+  commercialContext: string;
+  sellerObjective: string;
+  desiredNextStep: string;
+  knownFacts: string;
+  unknowns: string;
+  difficulty: 'foundation' | 'standard' | 'advanced';
 }
 
 export interface PreparationBrief {
@@ -119,6 +145,27 @@ export interface RoleplayConfig {
   commercialConstraints: string;
   hiddenPriorities: string[];
   desiredOutcome: string;
+  module?: PracticeModule;
+  scenarioTitle?: string;
+  dealIntelligence?: DealIntelligence;
+  knownFacts?: string[];
+  unknowns?: string[];
+  objectionLadder?: string[];
+  triggerConditions?: string[];
+  requiredBehaviors?: string[];
+  forbiddenMoves?: string[];
+}
+
+export interface ScenarioPlan extends RoleplayConfig {
+  module: PracticeModule;
+  scenarioTitle: string;
+  dealIntelligence: DealIntelligence;
+  knownFacts: string[];
+  unknowns: string[];
+  objectionLadder: string[];
+  triggerConditions: string[];
+  requiredBehaviors: string[];
+  forbiddenMoves: string[];
 }
 
 export interface PracticeSession {

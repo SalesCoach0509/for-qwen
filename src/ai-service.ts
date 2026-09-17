@@ -1,4 +1,4 @@
-import { Interaction, PreparationBrief, RoleplayConfig, PracticeEvaluation, CapabilityScore, PostInteractionAnalysis, CapabilityHistory, CapabilityName, EvidenceItem } from './types';
+import { Interaction, PreparationBrief, RoleplayConfig, PracticeEvaluation, CapabilityScore, PostInteractionAnalysis, CapabilityHistory, CapabilityName, EvidenceItem, DealIntelligence, ScenarioPlan } from './types';
 import { createLLMProvider, isLLMAvailable } from './llm-provider';
 import { calculateWeightedScore, detectPatterns } from './capability-memory';
 import { v4 as uuidv4 } from 'uuid';
@@ -158,6 +158,9 @@ function extractContext(notes: string): string[] {
 // ============================================================================
 
 export function generateRoleplayConfig(_interaction: Interaction, brief: PreparationBrief): RoleplayConfig {
+  if (_interaction.scenarioPlan) {
+    return _interaction.scenarioPlan;
+  }
   const notes = (_interaction.notes || '').toLowerCase();
   let role = 'Decision Maker', personality = 'Analytical and direct.', pressure: 'low' | 'medium' | 'high' = 'medium';
   
@@ -171,6 +174,92 @@ export function generateRoleplayConfig(_interaction: Interaction, brief: Prepara
     commercialConstraints: 'Budget under scrutiny. Switching being considered.',
     hiddenPriorities: ['Needs to look good to board', 'Reputation tied to decision'],
     desiredOutcome: 'Secure renewal on strong terms before discussing expansion.',
+  };
+}
+
+function asList(value: unknown, fallback: string[]): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 5)
+    : fallback;
+}
+
+/**
+ * Creates a session-specific sales simulation from user-supplied deal facts.
+ * Unknowns are explicitly retained so the model does not invent account data.
+ */
+export async function generateScenarioPlan(
+  interaction: Interaction,
+  brief: PreparationBrief,
+  deal: DealIntelligence
+): Promise<ScenarioPlan> {
+  const provider = createLLMProvider();
+  const briefObjections = Array.isArray(brief.likelyObjections) ? brief.likelyObjections : [];
+  const briefQuestions = Array.isArray(brief.recommendedQuestions) ? brief.recommendedQuestions : [];
+  const moduleLabels: Record<DealIntelligence['module'], string> = {
+    discovery: 'Discovery and Qualification',
+    negotiation: 'Objection Handling and Commercial Negotiation',
+    'renewal-expansion': 'Renewal and Expansion',
+  };
+  const systemPrompt = `You design realistic enterprise-sales practice simulations. Use only supplied facts. Never invent pricing, customer policies, stakeholders, outcomes, or commitments. Preserve unknowns as discovery gaps.
+Return JSON only with this exact structure:
+{
+  "scenarioTitle":"string", "stakeholderRole":"string", "personality":"string", "pressureLevel":"low|medium|high",
+  "objectives":["string"], "likelyObjections":["string"], "commercialConstraints":"string", "hiddenPriorities":["string"], "desiredOutcome":"string",
+  "knownFacts":["string"], "unknowns":["string"], "objectionLadder":["string"], "triggerConditions":["string"],
+  "requiredBehaviors":["string"], "forbiddenMoves":["string"]
+}
+Use 3-5 concise items per list. Make the objection ladder progress only after the seller has handled the earlier concern.
+Pressure design: foundation is collaborative and gives context after a good question; standard is skeptical and tests one concern at a time; advanced is time-constrained, asks for evidence, raises trade-offs, and escalates only when earned.`;
+  const userPrompt = `Practice module: ${moduleLabels[deal.module]}
+Difficulty: ${deal.difficulty}
+Interaction: ${interaction.name}; customer: ${interaction.customer}; seller role: ${interaction.role}
+Preparation brief objections: ${briefObjections.join(' | ') || 'Not provided'}
+Preparation brief questions: ${briefQuestions.join(' | ') || 'Not provided'}
+Deal intelligence:
+Stage: ${deal.dealStage || 'Not provided'}
+Deal value: ${deal.dealValue || 'Not provided'}
+Contract term / renewal timing: ${deal.contractTerm || 'Not provided'}
+Solution: ${deal.solution || 'Not provided'}
+Buyer role: ${deal.buyerRole || 'Not provided'}
+Buyer context: ${deal.buyerContext || 'Not provided'}
+Trigger event: ${deal.triggerEvent || 'Not provided'}
+Business impact: ${deal.businessImpact || 'Not provided'}
+Stakeholder map: ${deal.stakeholderMap || 'Not provided'}
+Competition: ${deal.competition || 'Not provided'}
+Commercial context: ${deal.commercialContext || 'Not provided'}
+Seller objective: ${deal.sellerObjective || interaction.objective || 'Not provided'}
+Desired next step: ${deal.desiredNextStep || 'Not provided'}
+Known facts: ${deal.knownFacts || 'Not provided'}
+Unknowns: ${deal.unknowns || 'Not provided'}`;
+  const response = await provider.chat(
+    [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
+    { temperature: 0.25, maxTokens: 800, jsonMode: true }
+  );
+  const data: Record<string, unknown> = JSON.parse(response.content);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    throw new Error('The live AI returned an invalid scenario plan. Please generate it again.');
+  }
+  const pressureByDifficulty: Record<DealIntelligence['difficulty'], 'low' | 'medium' | 'high'> = {
+    foundation: 'low', standard: 'medium', advanced: 'high',
+  };
+  return {
+    module: deal.module,
+    dealIntelligence: deal,
+    scenarioTitle: typeof data.scenarioTitle === 'string' ? data.scenarioTitle : `${moduleLabels[deal.module]} practice`,
+    stakeholderRole: typeof data.stakeholderRole === 'string' ? data.stakeholderRole : deal.buyerRole || 'Decision Maker',
+    personality: typeof data.personality === 'string' ? data.personality : 'Analytical and direct.',
+    pressureLevel: pressureByDifficulty[deal.difficulty],
+    objectives: asList(data.objectives, [deal.sellerObjective || interaction.objective || 'Advance the conversation']),
+    likelyObjections: asList(data.likelyObjections, briefObjections.slice(0, 3)),
+    commercialConstraints: typeof data.commercialConstraints === 'string' ? data.commercialConstraints : deal.commercialContext || 'Not provided',
+    hiddenPriorities: asList(data.hiddenPriorities, ['Not provided']),
+    desiredOutcome: typeof data.desiredOutcome === 'string' ? data.desiredOutcome : deal.desiredNextStep || 'Agree a specific next step',
+    knownFacts: asList(data.knownFacts, deal.knownFacts ? [deal.knownFacts] : ['Not provided']),
+    unknowns: asList(data.unknowns, deal.unknowns ? [deal.unknowns] : ['Not provided']),
+    objectionLadder: asList(data.objectionLadder, briefObjections.slice(0, 3)),
+    triggerConditions: asList(data.triggerConditions, ['Introduce the next objection only after a relevant seller response.']),
+    requiredBehaviors: asList(data.requiredBehaviors, ['Acknowledge the concern', 'Ask a clarifying question', 'Secure a next step']),
+    forbiddenMoves: asList(data.forbiddenMoves, ['Inventing facts', 'Offering an unapproved concession']),
   };
 }
 
@@ -199,11 +288,25 @@ async function generateEvalWithLLM(
   sessionId?: string
 ): Promise<PracticeEvaluation> {
   const provider = createLLMProvider();
+  const primaryCapability: CapabilityName = config.module === 'discovery'
+    ? 'Discovery'
+    : config.module === 'negotiation'
+      ? 'Negotiation'
+      : config.module === 'renewal-expansion'
+        ? 'Commercial Discipline'
+        : 'Objection Handling';
+  const moduleFocus = config.module === 'discovery'
+    ? 'For this discovery session, reward precise questions that uncover impact, stakeholders, process, urgency, and a committed next step. Penalize pitching before understanding the problem.'
+    : config.module === 'renewal-expansion'
+      ? 'For this renewal and expansion session, reward proof of realized value, stakeholder alignment, renewal-risk discovery, and disciplined expansion qualification. Penalize assumptions about adoption or budget.'
+      : 'For this objection and commercial session, reward acknowledgment, clarification, value reframing, commercial discipline, and a credible next step.';
   
   // Format conversation with turn numbers for evidence traceability
   const conversation = turns.map((t, i) => `[Turn ${i + 1}] ${t.role === 'ai' ? config.stakeholderRole : 'Employee'}: ${t.content}`).join('\n');
   
-  const systemPrompt = `You are an expert sales coach evaluating objection handling. You MUST follow this exact rubric.
+  const systemPrompt = `You are an expert sales coach evaluating seller behavior. You MUST follow this exact rubric.
+
+MODULE FOCUS: ${moduleFocus}
 
 STEP 1: IDENTIFY THE BEHAVIOR
 Look at what the employee ACTUALLY DID in their response:
@@ -275,8 +378,16 @@ Output JSON with this exact structure:
 }
 Use at most 3 evidence items and return the complete response below 1,000 tokens.`;
 
+  const scenarioContext = `Scenario title: ${config.scenarioTitle || 'General objection handling'}
+Module: ${config.module || 'General sales practice'}
+Buyer: ${config.stakeholderRole}
+Required behaviors: ${config.requiredBehaviors?.join(' | ') || 'Acknowledge, clarify, and advance the conversation'}
+Commercial guardrails: ${config.forbiddenMoves?.join(' | ') || 'Do not concede without understanding the concern'}
+Known facts: ${config.knownFacts?.join(' | ') || 'None provided'}
+Unknowns that must not be treated as facts: ${config.unknowns?.join(' | ') || 'None provided'}`;
+
   const response = await provider.chat(
-    [{ role: 'system', content: systemPrompt }, { role: 'user', content: `Scenario: ${config.stakeholderRole}\n\n${conversation}` }],
+    [{ role: 'system', content: systemPrompt }, { role: 'user', content: `${scenarioContext}\n\n${conversation}` }],
     { temperature: 0.2, maxTokens: 1200, jsonMode: true }
   );
 
@@ -298,7 +409,7 @@ Use at most 3 evidence items and return the complete response below 1,000 tokens
     overallReadiness: data.overallReadiness,
     capabilityScores: [
       {
-        capability: 'Objection Handling', score: data.objectionHandlingScore, level: data.objectionHandlingLevel,
+        capability: primaryCapability, score: data.objectionHandlingScore, level: data.objectionHandlingLevel,
         evidence: validatedEvidence,
         strength: data.strength, weakness: data.weakness, recommendedIntervention: data.recommendedIntervention, confidence: 0.85,
       },

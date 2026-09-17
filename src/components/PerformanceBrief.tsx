@@ -4,7 +4,7 @@ import { store } from '../store';
 import { generateBrief } from '../ai-service';
 import { ArrowLeft, Target, Users, AlertTriangle, MessageCircle, Shield, Brain, Clock, Play, ChevronDown, ChevronUp, Lightbulb, Ban } from 'lucide-react';
 
-type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
+type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
 
 interface Props {
   state: AppState;
@@ -96,11 +96,11 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
             </div>
           </div>
           <button
-            onClick={() => navigate('roleplay', interactionId || undefined)}
+            onClick={() => navigate('scenario', interactionId || undefined)}
             className="px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
           >
             <Play size={16} />
-            Practice this interaction
+            Design practice scenario
           </button>
         </div>
       </header>
@@ -226,11 +226,11 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
             </div>
             <p className="text-sm text-surface-700 leading-relaxed">{brief.practiceRecommendation}</p>
             <button
-              onClick={() => navigate('roleplay', interactionId || undefined)}
+              onClick={() => navigate('scenario', interactionId || undefined)}
               className="mt-4 px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
             >
               <Play size={16} />
-              Start Practice Session
+              Build Practice Session
             </button>
           </div>
         </div>

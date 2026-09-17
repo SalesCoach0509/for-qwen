@@ -194,7 +194,7 @@ export default function BeforeAfterDemo({ navigate }: Props) {
             The AI coach will identify your specific weaknesses and help you improve through targeted practice.
           </p>
           <button
-            onClick={() => navigate('dashboard')}
+            onClick={() => navigate('create')}
             className="px-6 py-3 bg-white text-primary-700 font-semibold rounded-xl hover:bg-primary-50 transition-all shadow-lg inline-flex items-center gap-2"
           >
             Try It Yourself
