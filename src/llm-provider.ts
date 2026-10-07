@@ -1,3 +1,5 @@
+import { store } from './store';
+import { v4 as uuidv4 } from 'uuid';
 // Live AI provider proxy. API keys remain on the Express backend.
 
 const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
@@ -18,15 +20,16 @@ export interface LLMResponse {
 
 export interface LLMProvider {
   name: string;
-  chat(messages: LLMMessage[], options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }): Promise<LLMResponse>;
+  chat(messages: LLMMessage[], options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean; operation?: string }): Promise<LLMResponse>;
 }
 
 class BackendProxyProvider implements LLMProvider {
   name = 'live-provider';
   constructor(private endpoint: string) {}
 
-  async chat(messages: LLMMessage[], options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean }): Promise<LLMResponse> {
+  async chat(messages: LLMMessage[], options?: { temperature?: number; maxTokens?: number; jsonMode?: boolean; operation?: string }): Promise<LLMResponse> {
     const startTime = Date.now();
+    const requestId = uuidv4();
     try {
       const response = await fetch(`${BACKEND_URL}${this.endpoint}`, {
         method: 'POST',
@@ -42,9 +45,12 @@ class BackendProxyProvider implements LLMProvider {
           : `Backend API error (${latency}ms): ${JSON.stringify(error)}`);
       }
       const data = await response.json();
+      if (typeof data.content !== 'string' || !data.content.trim()) throw new Error('AI returned empty content.');
+      store.recordAiOperation({ operation: options?.operation || 'LLM_CHAT', provider: getProviderInfo().name, model: getProviderInfo().model, promptVersion: 'performance-v1', requestId, latency: Date.now() - startTime, timestamp: new Date().toISOString(), success: true });
       return { content: data.content, usage: data.usage };
     } catch (error) {
       const latency = Date.now() - startTime;
+      store.recordAiOperation({ operation: options?.operation || 'LLM_CHAT', provider: getProviderInfo().name, model: getProviderInfo().model, promptVersion: 'performance-v1', requestId, latency: Date.now() - startTime, timestamp: new Date().toISOString(), success: false });
       console.error(`✗ Backend call failed after ${latency}ms:`, error);
       throw error;
     }
@@ -62,6 +68,10 @@ export class RoleplayProvider {
     conversationHistory: { role: 'ai' | 'user'; content: string }[],
     sessionId?: string
   ): Promise<{ response: string; sessionId?: string; conversationState?: string; aiMeta?: unknown }> {
+    const startTime = Date.now();
+    const requestId = uuidv4();
+    let success = false;
+    try {
     const response = await fetch(`${BACKEND_URL}/api/ai/roleplay/respond`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -72,7 +82,13 @@ export class RoleplayProvider {
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
       throw new Error(`LIVE AI ERROR: ${error.message || JSON.stringify(error)}`);
     }
-    return await response.json();
+    const result = await response.json();
+    if (typeof result.response !== 'string' || !result.response.trim()) throw new Error('Stakeholder response was empty.');
+    success = true;
+    return result;
+    } finally {
+      store.recordAiOperation({ operation: 'PRACTICE_CONVERSATION', provider: getProviderInfo().name, model: getProviderInfo().model, promptVersion: 'performance-v1', requestId, latency: Date.now() - startTime, timestamp: new Date().toISOString(), success });
+    }
   }
 }
 
@@ -83,7 +99,7 @@ export async function checkBackendHealth(): Promise<{ available: boolean; provid
     });
     if (!response.ok) return { available: false };
     const data = await response.json();
-    return { available: true, provider: data.provider, model: data.model };
+    return { available: data.status !== 'degraded' && data.apiKeySet !== false, provider: data.provider, model: data.model };
   } catch (error) {
     console.error('Backend health check failed:', error);
     return { available: false };

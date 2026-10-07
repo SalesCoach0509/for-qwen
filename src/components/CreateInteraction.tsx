@@ -17,6 +17,7 @@ export default function CreateInteraction({ navigate }: Props) {
     name: '',
     customer: '',
     role: '',
+    stakeholderRole: '',
     dateTime: '',
     objective: '',
     agenda: '',
@@ -29,6 +30,7 @@ export default function CreateInteraction({ navigate }: Props) {
       name: demoInteraction.name || '',
       customer: demoInteraction.customer || '',
       role: demoInteraction.role || '',
+      stakeholderRole: 'CFO',
       dateTime: demoInteraction.dateTime || '',
       objective: demoInteraction.objective || '',
       agenda: demoInteraction.agenda || '',
@@ -46,12 +48,17 @@ export default function CreateInteraction({ navigate }: Props) {
       name: form.name,
       customer: form.customer,
       role: form.role || 'Account Executive',
+      stakeholderRole: form.stakeholderRole || 'Stakeholder',
+      stakeholder: form.stakeholderRole || 'Stakeholder',
+      interactionType: 'Customer interaction',
+      priority: 'medium' as const,
+      focusCapability: 'Objection Handling' as const,
       dateTime: form.dateTime || new Date(Date.now() + 86400000).toISOString().slice(0, 16),
       objective: form.objective,
       agenda: form.agenda,
       notes: form.notes,
       additionalContext: form.additionalContext,
-      status: 'upcoming' as const,
+      status: 'UPCOMING' as const,
       createdAt: new Date().toISOString(),
     };
 
@@ -129,6 +136,16 @@ export default function CreateInteraction({ navigate }: Props) {
                   onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
                   className="w-full px-4 py-2.5 rounded-xl border border-surface-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition-all text-sm"
                   placeholder="e.g., Account Executive"
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-sm font-medium text-surface-700 mb-1.5">Stakeholder role</label>
+                <input
+                  type="text"
+                  value={form.stakeholderRole}
+                  onChange={e => setForm(f => ({ ...f, stakeholderRole: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-surface-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition-all text-sm"
+                  placeholder="e.g., CFO"
                 />
               </div>
               <div>

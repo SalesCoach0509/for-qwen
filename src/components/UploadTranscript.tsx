@@ -17,11 +17,14 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
   const [transcript, setTranscript] = useState('');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'paste' | 'upload'>('paste');
+  const [source, setSource] = useState<'paste' | 'upload' | 'demo'>('paste');
+  const [fileError, setFileError] = useState<string | null>(null);
 
   const interaction = state.interactions.find(i => i.id === interactionId);
 
   const handleLoadDemo = () => {
     setTranscript(demoTranscript);
+    setSource('demo');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -32,7 +35,10 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
     reader.onload = (event) => {
       const text = event.target?.result as string;
       setTranscript(text);
+      setSource('upload');
+      setFileError(null);
     };
+    reader.onerror = () => setFileError('The file could not be read. Please try another text file.');
     reader.readAsText(file);
   };
 
@@ -45,12 +51,15 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
       id: uuidv4(),
       interactionId,
       content: transcript.trim(),
-      source: 'paste' as const,
+      source,
       uploadedAt: new Date().toISOString(),
+      performancePlanId: store.getBriefForInteraction(interactionId)?.id,
+      practiceSessionIds: store.getPracticeForInteraction(interactionId).map(s => s.id),
+      capabilitySnapshotBefore: structuredClone(state.capabilityHistory),
     };
     
     store.addTranscript(transcriptRecord);
-    store.updateInteraction(interactionId, { status: 'performed' });
+    store.transitionInteraction(interactionId, 'PERFORMED');
     
     // Navigate to post-interaction analysis
     setLoading(false);
@@ -65,7 +74,7 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
             <ArrowLeft size={18} className="text-surface-600" />
           </button>
           <div>
-            <h1 className="text-lg font-bold text-surface-900">Upload Interaction</h1>
+            <h1 className="text-lg font-bold text-surface-900">Add Real Performance</h1>
             <p className="text-sm text-surface-400">{interaction?.customer} · {interaction?.name}</p>
           </div>
         </div>
@@ -111,7 +120,7 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
             <div>
               <textarea
                 value={transcript}
-                onChange={e => setTranscript(e.target.value)}
+                onChange={e => { setTranscript(e.target.value); setSource('paste'); }}
                 rows={15}
                 className="w-full px-4 py-3 rounded-xl border border-surface-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition-all text-sm font-mono resize-none"
                 placeholder="Paste the meeting transcript here...
@@ -151,6 +160,7 @@ Person B: Thanks for meeting..."
               )}
             </div>
           )}
+          {fileError && <p role="alert" className="text-sm text-red-600 mt-2">{fileError}</p>}
 
           <div className="mt-6 pt-4 border-t border-surface-100">
             <button

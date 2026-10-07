@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { AppState, PostInteractionAnalysis } from '../types';
+import { AppState, PostInteractionAnalysis, OBJECTION_DIMENSIONS } from '../types';
 import { store } from '../store';
 import { analyzeTranscript } from '../ai-service';
 import { updateCapabilityHistory } from '../capability-memory';
+import { groundTranscriptAnalysis } from '../evidence-grounding';
 import { ArrowLeft, Target, CheckCircle, AlertCircle, TrendingUp, ArrowRight, Play, BarChart3, Zap, AlertTriangle } from 'lucide-react';
 
-type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
+type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
 
 interface Props {
   state: AppState;
@@ -17,19 +18,12 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
   const [analysis, setAnalysis] = useState<PostInteractionAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   const interaction = state.interactions.find(i => i.id === interactionId);
-  const transcript = state.transcripts.find(t => t.interactionId === interactionId);
+  const transcript = [...state.transcripts].reverse().find(t => t.interactionId === interactionId);
 
   useEffect(() => {
-    if (!interactionId || !interaction) {
-      setError('This interaction is no longer available. Return to the dashboard and select it again.');
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
+    if (!interactionId || !interaction) return;
     
     // Check if analysis already exists
     const existing = store.getAnalysisForInteraction(interactionId);
@@ -50,10 +44,12 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
       return;
     }
 
-    // Generate analysis
-    analyzeTranscript(transcript.content, interaction, brief).then(async a => {
-      store.addAnalysis(a);
-      store.updateInteraction(interactionId, { status: 'analyzed' });
+    // Generate analysis only after the transcript and plan are available.
+    let active = true;
+    if (interaction.status !== 'ANALYZING') store.transitionInteraction(interactionId, 'ANALYZING');
+    analyzeTranscript(transcript.content, interaction, brief).then(async raw => {
+      if (!active) return;
+      const a = groundTranscriptAnalysis(raw, transcript.content, transcript.id);
       
       // Update capability history (async with judge validation)
       const updatedHistory = await updateCapabilityHistory(
@@ -61,16 +57,22 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
         a.capabilityDiagnosis,
         `Real interaction: ${interaction.name}`
       );
-      store.updateCapabilityHistory(updatedHistory);
+      if (!active) return;
+      const completedAnalysis = { ...a, transcriptId: transcript.id };
+      store.addAnalysis(completedAnalysis);
+      store.updateCapabilityHistory(updatedHistory, interactionId);
+      store.transitionInteraction(interactionId, 'ANALYZED');
       
-      setAnalysis(a);
+      setAnalysis(completedAnalysis);
       setLoading(false);
-    }).catch(error => {
-      console.error('Transcript analysis failed:', error);
-      setError('We could not analyze this interaction. The AI provider took too long or was temporarily unavailable.');
+    }).catch(e => {
+      if (!active) return;
+      store.transitionInteraction(interactionId, 'ANALYSIS_FAILED');
+      setError(e instanceof Error ? e.message : 'Analysis failed.');
       setLoading(false);
     });
-  }, [interactionId, interaction, transcript, retryCount]);
+    return () => { active = false; };
+  }, [interactionId]);
 
   if (loading) {
     return (
@@ -86,32 +88,16 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
     );
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-surface-50 flex items-center justify-center p-4">
-        <div className="max-w-md bg-white rounded-2xl shadow-lg p-6 text-center">
-          <AlertTriangle size={32} className="text-amber-500 mx-auto mb-3" />
-          <h1 className="text-lg font-bold text-surface-900">Analysis did not complete</h1>
-          <p className="text-sm text-surface-600 mt-2">{error}</p>
-          <div className="mt-5 flex justify-center gap-3">
-            <button onClick={() => navigate('upload', interactionId || undefined)} className="px-4 py-2 rounded-lg border border-surface-200 text-surface-700">Back</button>
-            <button onClick={() => setRetryCount(count => count + 1)} className="px-4 py-2 rounded-lg bg-primary-600 text-white">Retry</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (!analysis) {
     return (
       <div className="min-h-screen bg-surface-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-surface-600">No analysis available. Please upload a transcript first.</p>
+          <p className="text-surface-600">{error || 'No analysis available. Please add a transcript first.'}</p>
           <button
             onClick={() => navigate('upload', interactionId || undefined)}
             className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg"
           >
-            Upload Transcript
+            Add Real Performance
           </button>
         </div>
       </div>
@@ -155,7 +141,7 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
         <div className="bg-white rounded-2xl border border-surface-100 p-6 animate-fade-in">
           <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide mb-4 flex items-center gap-2">
             <Target size={14} className="text-primary-500" />
-            Plan vs. Actual
+            You prepared for this. Here's what actually happened.
           </h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -163,6 +149,7 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
                 <tr className="border-b border-surface-100">
                   <th className="text-left py-2 px-3 text-surface-500 font-medium">Intended</th>
                   <th className="text-left py-2 px-3 text-surface-500 font-medium">Actual</th>
+                  <th className="text-left py-2 px-3 text-surface-500 font-medium">Evidence</th>
                   <th className="text-center py-2 px-3 text-surface-500 font-medium">Impact</th>
                 </tr>
               </thead>
@@ -171,6 +158,7 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
                   <tr key={idx} className="border-b border-surface-50 hover:bg-surface-50 animate-slide-in" style={{ animationDelay: `${idx * 0.05}s` }}>
                     <td className="py-3 px-3 text-surface-700">{row.intended}</td>
                     <td className="py-3 px-3 text-surface-700">{row.actual}</td>
+                    <td className="py-3 px-3 text-surface-600">{row.sourceText || row.observation?.replace(/_/g, ' ').toLowerCase() || 'Insufficient evidence'}</td>
                     <td className="py-3 px-3 text-center">
                       <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${getImpactColor(row.impact)}`}>
                         {row.impact}
@@ -180,6 +168,10 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="mt-4 rounded-lg bg-primary-50 p-4 text-sm text-primary-900">
+            <strong>Preparation effectiveness</strong>
+            <p>{analysis.planVsActual.length} priority behaviours · {analysis.planVsActual.filter(r => r.observation === 'OBSERVED').length} observed · {analysis.planVsActual.filter(r => r.observation === 'OBSERVED' && r.impact === 'Low').length} successfully executed · {analysis.planVsActual.filter(r => r.observation === 'OBSERVED' && r.impact !== 'Low').length} missed or at risk · {analysis.planVsActual.filter(r => r.observation === 'INSUFFICIENT_EVIDENCE').length} not observable</p>
           </div>
           {/* Impact explanations */}
           <div className="mt-4 space-y-2">
@@ -236,7 +228,7 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
             Capability Diagnosis
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {analysis.capabilityDiagnosis
+            {[...analysis.capabilityDiagnosis]
               .sort((a, b) => a.score - b.score)
               .map((cap) => (
               <div key={cap.capability} className="flex items-center gap-3 p-3 rounded-xl bg-surface-50">
@@ -245,14 +237,15 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
                   {cap.evidence.length > 0 && (
                     <p className="text-xs text-surface-500 mt-0.5">{cap.evidence[0].statement}</p>
                   )}
+                  <details className="text-xs text-surface-600 mt-2"><summary className="cursor-pointer">Behavioural dimensions</summary><div className="grid grid-cols-2 gap-1 mt-2">{OBJECTION_DIMENSIONS.map(dimension => <p key={dimension}>{dimension}: {cap.dimensions?.[dimension] == null ? 'NOT OBSERVED' : `${cap.dimensions[dimension]}/5`}</p>)}</div></details>
                 </div>
                 <div className="text-right">
                   <span className={`text-lg font-bold ${
                     cap.score >= 3.5 ? 'text-emerald-600' : cap.score >= 2.5 ? 'text-amber-600' : 'text-red-600'
                   }`}>
-                    {cap.score.toFixed(1)}
+                    {cap.evidence.length ? cap.score.toFixed(1) : 'NOT OBSERVED'}
                   </span>
-                  <span className="text-xs text-surface-400">/5</span>
+                  {cap.evidence.length > 0 && <span className="text-xs text-surface-400">/5 · {cap.evidence.length} observations</span>}
                 </div>
               </div>
             ))}
@@ -281,10 +274,11 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
         <div className="bg-white rounded-2xl border-2 border-primary-200 p-6 animate-fade-in" style={{ animationDelay: '0.35s' }}>
           <div className="flex items-center gap-2 mb-3">
             <Zap size={18} className="text-primary-500" />
-            <h2 className="text-sm font-semibold text-primary-700 uppercase tracking-wide">Your Next Coaching Action</h2>
+            <h2 className="text-sm font-semibold text-primary-700 uppercase tracking-wide">Your Next Development Priority</h2>
           </div>
           <h3 className="text-lg font-bold text-surface-900 mb-2">{analysis.nextIntervention.title}</h3>
           <p className="text-sm text-surface-600 mb-2">{analysis.nextIntervention.description}</p>
+          <div className="grid md:grid-cols-2 gap-2 text-sm text-surface-700 mb-3"><p><strong>Capability:</strong> {analysis.nextIntervention.targetCapability}</p><p><strong>Behaviour:</strong> {analysis.nextIntervention.behaviour || analysis.nextIntervention.recommendedAction}</p><p><strong>Why it matters:</strong> {analysis.nextIntervention.whyItMatters || analysis.nextIntervention.description}</p><p><strong>Difficulty:</strong> {analysis.nextIntervention.difficulty || 'medium'}</p><p className="md:col-span-2"><strong>Success looks like:</strong> {analysis.nextIntervention.successCriterion || 'Demonstrate the target behaviour in practice.'}</p></div>
           <div className="bg-primary-50 rounded-lg p-3 mb-4">
             <p className="text-sm text-primary-800 font-medium">
               <AlertTriangle size={14} className="inline mr-1.5" />
@@ -294,11 +288,11 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => navigate('scenario', interactionId || undefined)}
+              onClick={() => navigate('roleplay', interactionId || undefined)}
               className="px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
             >
               <Play size={16} />
-              Start practice now
+              Practice this now
             </button>
             <button
               onClick={() => navigate('dashboard')}

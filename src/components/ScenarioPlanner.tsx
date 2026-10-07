@@ -64,7 +64,7 @@ const demoDeals: Record<PracticeModule, Omit<DealIntelligence, 'module' | 'diffi
 };
 
 function readPlanList(value: string): string[] {
-  return value.split(/\n|,/).map(item => item.trim()).filter(Boolean);
+  return value.split(/\r?\n/).map(item => item.trim()).filter(Boolean);
 }
 
 function listText(value: unknown): string {
@@ -86,20 +86,21 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
   );
   const existing = interaction?.scenarioPlan;
   const [plan, setPlan] = useState<ScenarioPlan | undefined>(existing);
+  const [isDemo, setIsDemo] = useState(existing?.sourceMode === 'DEMO');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deal, setDeal] = useState<DealIntelligence>(() => {
     const savedDeal = existing?.dealIntelligence;
-    const module = savedDeal?.module || existing?.module || 'discovery';
+    const module = savedDeal?.module || existing?.module || 'negotiation';
     return {
-      ...demoDeals[module],
+      dealStage: '', dealValue: '', contractTerm: '', solution: '', buyerContext: '', triggerEvent: '', businessImpact: '', stakeholderMap: '', competition: '', commercialContext: '',
       ...savedDeal,
       module,
-      buyerRole: savedDeal?.buyerRole || existing?.stakeholderRole || demoDeals[module].buyerRole,
-      sellerObjective: savedDeal?.sellerObjective || interaction?.objective || demoDeals[module].sellerObjective,
-      desiredNextStep: savedDeal?.desiredNextStep || existing?.desiredOutcome || demoDeals[module].desiredNextStep,
-      knownFacts: savedDeal?.knownFacts || listText(existing?.knownFacts) || demoDeals[module].knownFacts,
-      unknowns: savedDeal?.unknowns || listText(existing?.unknowns) || demoDeals[module].unknowns,
+      buyerRole: savedDeal?.buyerRole || existing?.stakeholderRole || interaction?.stakeholderRole || '',
+      sellerObjective: savedDeal?.sellerObjective || interaction?.objective || '',
+      desiredNextStep: savedDeal?.desiredNextStep || existing?.desiredOutcome || '',
+      knownFacts: savedDeal?.knownFacts || listText(existing?.knownFacts) || '',
+      unknowns: savedDeal?.unknowns || listText(existing?.unknowns) || '',
       difficulty: savedDeal?.difficulty || (existing?.pressureLevel === 'high' ? 'advanced' : existing?.pressureLevel === 'low' ? 'foundation' : 'standard'),
     };
   });
@@ -124,6 +125,7 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
   };
 
   const loadDemo = (module: PracticeModule) => {
+    setIsDemo(true);
     setDeal({ ...demoDeals[module], module, difficulty: 'standard' });
     setPlan(undefined);
     setError(null);
@@ -142,8 +144,9 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
         knownFacts: readPlanList(deal.knownFacts).join('\n'),
         unknowns: readPlanList(deal.unknowns).join('\n'),
       });
-      setPlan(generated);
-      store.updateInteraction(interaction.id, { scenarioPlan: generated, status: 'prepared' });
+      const saved = { ...generated, sourceMode: isDemo ? 'DEMO' as const : 'REAL_CONTEXT' as const };
+      setPlan(saved);
+      store.updateInteraction(interaction.id, { scenarioPlan: saved });
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'The live AI scenario could not be generated. Please retry.');
     } finally {
@@ -168,17 +171,19 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
         <div className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-600">{interaction.customer} · {interaction.role}</div>
       </div>
 
+      {isDemo && <p role="status" className="mt-4 rounded-lg bg-amber-50 p-3 text-amber-800">Synthetic demo context loaded. These facts do not describe your real customer.</p>}
       <section className="mt-7 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-slate-900">1. Choose the skill to rehearse</h2>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
           {moduleOptions.map(option => (
-            <button key={option.value} type="button" onClick={() => loadDemo(option.value)} className={`rounded-xl border p-4 text-left transition ${deal.module === option.value ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300'}`}>
+            <button key={option.value} type="button" onClick={() => update('module', option.value)} className={`rounded-xl border p-4 text-left transition ${deal.module === option.value ? 'border-indigo-600 bg-indigo-50 ring-1 ring-indigo-600' : 'border-slate-200 hover:border-indigo-300'}`}>
               <span className="font-semibold text-slate-900">{option.title}</span>
               <span className="mt-1 block text-sm text-slate-600">{option.description}</span>
-              <span className="mt-3 inline-block text-xs font-semibold text-indigo-600">Load demo case</span>
+              <span className="mt-3 inline-block text-xs font-semibold text-indigo-600">Select practice focus</span>
             </button>
           ))}
         </div>
+        <button type="button" onClick={() => loadDemo(deal.module)} className="mt-4 text-sm font-semibold text-indigo-600 underline">Load synthetic demo case</button>
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-slate-700">Pressure level:</span>
           {(['foundation', 'standard', 'advanced'] as const).map(level => (
@@ -189,7 +194,7 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
 
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 className="font-semibold text-slate-900">2. Give the buyer and deal a point of view</h2>
-        <p className="mt-1 text-sm text-slate-600">Choosing a skill above loads a complete demo case. Replace only the open fields that matter for your deal; explicit unknowns become discovery opportunities instead of AI-invented details.</p>
+        <p className="mt-1 text-sm text-slate-600">Add the facts for this performance moment. Leave unknown details blank or list them as questions. The optional demo case is synthetic.</p>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <label className="text-sm font-medium text-slate-700">Deal stage<select className={fieldClass} value={deal.dealStage} onChange={event => update('dealStage', event.target.value)}><option>Prospecting</option><option>Discovery</option><option>Qualification</option><option>Evaluation</option><option>Negotiation</option><option>Renewal</option><option>Expansion</option></select></label>
           <label className="text-sm font-medium text-slate-700">Deal value<input className={fieldClass} placeholder="e.g. $240,000 ARR" value={deal.dealValue} onChange={event => update('dealValue', event.target.value)} /></label>
@@ -224,7 +229,7 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
             <h2 className="mt-1 text-xl font-bold text-slate-950">{plan.scenarioTitle}</h2>
             <p className="mt-1 text-sm text-slate-700">Buyer: {plan.stakeholderRole} · Pressure: {plan.pressureLevel}</p>
           </div>
-          <button type="button" onClick={() => navigate('roleplay', interaction.id)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 font-semibold text-white hover:bg-slate-800">Launch live roleplay <ChevronRight size={18} /></button>
+          <button type="button" onClick={() => navigate('roleplay', interaction.id)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 py-2.5 font-semibold text-white hover:bg-slate-800">Practice this scenario <ChevronRight size={18} /></button>
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl bg-white p-4"><Target className="mb-2 text-indigo-600" size={19} /><p className="text-sm font-semibold text-slate-900">Success outcome</p><p className="mt-1 text-sm text-slate-600">{plan.desiredOutcome}</p></div>

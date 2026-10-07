@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { AppState, PracticeSession, PracticeTurn, RoleplayConfig } from '../types';
 import { store } from '../store';
-import { generateRoleplayConfig, getRoleplayResponse, resetRoleplayState } from '../ai-service';
+import { generateRoleplayConfig } from '../ai-service';
+import { PracticeChannel, TextPracticeChannel } from '../practice-channel';
 import { v4 as uuidv4 } from 'uuid';
-import { AlertCircle, ArrowLeft, Send, User, Bot, Flag, Loader2 } from 'lucide-react';
+import { ArrowLeft, Send, User, Bot, Flag, Loader2 } from 'lucide-react';
 
-type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
+type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
 
 interface Props {
   state: AppState;
@@ -21,13 +22,11 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
   const [, setConversationState] = useState<string>('OPENING');
   const [sessionFailed, setSessionFailed] = useState(false);
   const [failureMessage, setFailureMessage] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const initializedInteractionRef = useRef<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const channel = useRef<PracticeChannel>(new TextPracticeChannel());
 
-  // Read the current store value so a scenario saved immediately before navigation
-  // is available even if React batches the store update and route change together.
-  const interaction = store.getState().interactions.find(i => i.id === interactionId)
-    || state.interactions.find(i => i.id === interactionId);
+  const interaction = state.interactions.find(i => i.id === interactionId);
   const brief = store.getBriefForInteraction(interactionId || '');
 
   useEffect(() => {
@@ -35,8 +34,19 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
     if (initializedInteractionRef.current === interaction.id) return;
     initializedInteractionRef.current = interaction.id;
     
-    const roleplayConfig = generateRoleplayConfig(interaction, brief);
+    const latestAnalysis = [...store.getState().analyses].reverse().find(a => a.interactionId === interaction.id);
+    const baseConfig = generateRoleplayConfig(interaction, brief);
+    const roleplayConfig = latestAnalysis ? {
+      ...baseConfig,
+      objectives: [latestAnalysis.nextIntervention.recommendedAction],
+      targetCapability: latestAnalysis.nextIntervention.targetCapability,
+      targetBehavior: latestAnalysis.nextIntervention.recommendedAction,
+      performancePlan: `Targeted practice after the real interaction: ${latestAnalysis.nextIntervention.title}. ${latestAnalysis.nextIntervention.recommendedAction}`,
+    } : baseConfig;
     setConfig(roleplayConfig);
+    const currentStatus = store.getState().interactions.find(i => i.id === interaction.id)?.status;
+    if (currentStatus === 'ANALYZED') store.transitionInteraction(interaction.id, 'IMPROVING');
+    if (currentStatus !== 'PRACTICING') store.transitionInteraction(interaction.id, 'PRACTICING');
 
     // Create session with unique ID
     const sessionId = uuidv4();
@@ -50,23 +60,22 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
     };
     store.addPracticeSession(newSession);
     setSession(newSession);
-    resetRoleplayState();
 
     // AI opens
-    setIsTyping(true);
     setTimeout(async () => {
       try {
         // Pass empty conversation history for opening, with session ID
-        const opening = await getRoleplayResponse('', roleplayConfig, [], sessionId);
+        channel.current.send('', roleplayConfig, [], sessionId);
+        const opening = await channel.current.receive();
         
         // Validate session ID in response
         if (opening.sessionId && opening.sessionId !== sessionId) {
           console.error('Session ID mismatch');
-          setFailureMessage('The AI returned an invalid practice session. Please start again.');
+          store.transitionInteraction(interaction.id, 'PRACTICE_FAILED');
           setSessionFailed(true);
-          setIsTyping(false);
           return;
         }
+        if (!opening.response.trim()) throw new Error('Stakeholder opening was empty.');
         
         const aiTurn: PracticeTurn = {
           id: uuidv4(),
@@ -84,20 +93,19 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
         }
       } catch (error) {
         console.error('Roleplay opening error:', error);
-        setFailureMessage(error instanceof Error ? error.message : 'The AI could not start this roleplay.');
+        setFailureMessage(error instanceof Error ? error.message : 'Practice could not start.');
+        store.transitionInteraction(interaction.id, 'PRACTICE_FAILED');
         setSessionFailed(true);
-      } finally {
-        setIsTyping(false);
       }
     }, 800);
-  }, [interaction, brief]);
+  }, [interactionId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [session?.turns]);
 
   const handleSend = () => {
-    if (!input.trim() || !session || !config || isTyping) return;
+    if (!input.trim() || !session || !config || isTyping || session.turns.length === 0) return;
 
     const userTurn: PracticeTurn = {
       id: uuidv4(),
@@ -111,33 +119,23 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
     store.updatePracticeSession(session.id, { turns: updatedTurns });
     setInput('');
 
-    // Check if conversation should end
-    const userTurnCount = updatedTurns.filter(t => t.role === 'user').length;
-    if (userTurnCount >= 8) {
-      // End session
-      const completedSession = { ...session, turns: updatedTurns, status: 'completed' as const, completedAt: new Date().toISOString() };
-      store.updatePracticeSession(session.id, completedSession);
-      setSession(completedSession);
-      store.updateInteraction(interactionId!, { status: 'practiced' });
-      navigate('results', interactionId || undefined, session.id);
-      return;
-    }
-
     // AI responds
     setIsTyping(true);
     setTimeout(async () => {
       try {
         // CRITICAL: Pass full conversation history to AI with session ID
-        const response = await getRoleplayResponse(input.trim(), config, updatedTurns, session.id);
+        channel.current.send(input.trim(), config, updatedTurns, session.id);
+        const response = await channel.current.receive();
         
         // Validate session ID
         if (response.sessionId && response.sessionId !== session.id) {
           console.error('Session ID mismatch in response');
-          setFailureMessage('The AI returned an invalid response for this practice session. Please restart the scenario.');
+          if (interactionId) store.transitionInteraction(interactionId, 'PRACTICE_FAILED');
           setSessionFailed(true);
           setIsTyping(false);
           return;
         }
+        if (!response.response.trim()) throw new Error('Stakeholder response was empty.');
         
         const aiTurn: PracticeTurn = {
           id: uuidv4(),
@@ -154,34 +152,22 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
         if (response.conversationState) {
           setConversationState(response.conversationState);
           
-          // Check if conversation should end based on state
-          if (response.conversationState === 'RESOLVING' || response.conversationState === 'ESCALATING') {
-            // Allow user to end or auto-end after one more turn
-            setTimeout(() => {
-              const completedSession = { 
-                ...updatedSession, 
-                status: 'completed' as const, 
-                completedAt: new Date().toISOString() 
-              };
-              store.updatePracticeSession(session.id, completedSession);
-              store.updateInteraction(interactionId!, { status: 'practiced' });
-              navigate('results', interactionId || undefined, session.id);
-            }, 2000);
-          }
         }
         
         setIsTyping(false);
       } catch (error) {
         console.error('Roleplay error:', error);
         setIsTyping(false);
-        setFailureMessage(error instanceof Error ? error.message : 'The AI could not continue this roleplay.');
         setSessionFailed(true);
+        if (interactionId) store.transitionInteraction(interactionId, 'PRACTICE_FAILED');
+        // Show error to user instead of silently failing
+        alert(`AI Error: ${error}. Session could not be completed.`);
       }
     }, 1200 + Math.random() * 800);
   };
 
   const handleEndSession = () => {
-    if (!session) return;
+    if (!session || isTyping) return;
     
     // Validate session has minimum required turns
     const userTurns = session.turns.filter(t => t.role === 'user');
@@ -195,22 +181,10 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
     
     const completedSession = { ...session, status: 'completed' as const, completedAt: new Date().toISOString() };
     store.updatePracticeSession(session.id, completedSession);
-    store.updateInteraction(interactionId!, { status: 'practiced' });
     navigate('results', interactionId || undefined, session.id);
   };
 
-  if (!interaction || !brief) {
-    return (
-      <div className="min-h-screen bg-surface-50 flex items-center justify-center p-6">
-        <div className="max-w-md rounded-xl bg-white p-6 text-center shadow-lg">
-          <AlertCircle className="mx-auto mb-4 text-amber-500" size={32} />
-          <h2 className="text-xl font-bold text-surface-900">Practice setup is incomplete</h2>
-          <p className="mt-2 text-surface-600">Create or reopen the performance brief before starting the live roleplay.</p>
-          <button onClick={() => navigate('dashboard')} className="mt-5 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">Return to dashboard</button>
-        </div>
-      </div>
-    );
-  }
+  if (!interaction || !brief) return <div className="p-8"><h1>Practice setup is incomplete</h1><p>Open the performance plan before practicing.</p><button onClick={() => navigate('dashboard')}>Return home</button></div>;
 
   if (!session || !config) {
     return (
@@ -230,13 +204,9 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
         <div className="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg text-center">
           <div className="text-red-500 text-4xl mb-4">⚠️</div>
           <h2 className="text-xl font-bold text-surface-900 mb-2">Practice Session Failed</h2>
-          <p className="text-surface-600 mb-4">{failureMessage || 'The live AI could not complete this practice session. No assessment was generated.'}</p>
-          <button
-            onClick={() => navigate('scenario', interactionId || undefined)}
-            className="mr-3 px-4 py-2 border border-primary-600 text-primary-700 rounded-lg hover:bg-primary-50 transition-all"
-          >
-            Review scenario
-          </button>
+          <p className="text-surface-600 mb-4">
+            {failureMessage || 'Live AI unavailable. No assessment was generated.'}
+          </p>
           <button
             onClick={() => navigate('dashboard')}
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-all"
@@ -260,7 +230,7 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
               <ArrowLeft size={18} className="text-surface-600" />
             </button>
             <div>
-              <h1 className="text-sm font-bold text-surface-900">{config.scenarioTitle || 'Practice Session'}</h1>
+              <h1 className="text-sm font-bold text-surface-900">{config.scenarioTitle || 'Practice this moment'}</h1>
               <p className="text-xs text-surface-400">
                 Role: <span className="font-medium text-surface-600">{config.stakeholderRole}</span> · 
                 Pressure: <span className={`font-medium ${config.pressureLevel === 'high' ? 'text-red-600' : config.pressureLevel === 'medium' ? 'text-amber-600' : 'text-green-600'}`}>{config.pressureLevel}</span>
@@ -268,9 +238,10 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-surface-400">{userTurnCount}/8 turns</span>
+            <span className="text-xs text-surface-400">{userTurnCount} responses</span>
             <button
               onClick={handleEndSession}
+              disabled={isTyping || session.turns.length === 0}
               className="px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-all flex items-center gap-1"
             >
               <Flag size={14} />
@@ -284,9 +255,10 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
       <div className="bg-amber-50 border-b border-amber-100 px-4 py-2">
         <div className="max-w-3xl mx-auto">
           <p className="text-xs text-amber-700">
-            <span className="font-semibold">Scenario:</span> {config.module ? `${config.module.replace('-', ' ')} · ` : ''}You're meeting with the {config.stakeholderRole}. {config.personality}
-            {config.knownFacts?.length ? ` Known: ${config.knownFacts.join(' · ')}` : ''}
+            <span className="font-semibold">5-minute practice:</span> You're meeting with the {config.stakeholderRole}. {config.personality}
           </p>
+          <p className="text-xs text-amber-700 mt-1"><strong>Why this practice:</strong> {config.targetBehavior || brief?.personalCoachingFocus}</p>
+          <p className="text-xs text-amber-700 mt-1"><strong>Success looks like:</strong> {config.targetBehavior || brief?.practiceRecommendation}</p>
         </div>
       </div>
 
@@ -346,11 +318,11 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
               onKeyDown={e => e.key === 'Enter' && handleSend()}
               placeholder="Respond naturally as yourself..."
               className="flex-1 px-4 py-3 rounded-xl border border-surface-200 focus:border-primary-400 focus:ring-2 focus:ring-primary-100 outline-none transition-all text-sm"
-              disabled={isTyping}
+              disabled={isTyping || session.turns.length === 0}
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isTyping}
+              disabled={!input.trim() || isTyping || session.turns.length === 0}
               className="px-4 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:bg-surface-200 disabled:cursor-not-allowed transition-all"
             >
               <Send size={18} />

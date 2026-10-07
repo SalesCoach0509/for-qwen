@@ -74,7 +74,7 @@ export default function CapabilityProgress({ state, navigate }: Props) {
     return point;
   });
 
-  const overallAvg = capabilities.reduce((sum, c) => sum + c.currentScore, 0) / capabilities.length;
+  const overallAvg = capabilities.length ? capabilities.reduce((sum, c) => sum + c.currentScore, 0) / capabilities.length : 0;
 
   return (
     <div className="min-h-screen bg-surface-50">
@@ -85,7 +85,7 @@ export default function CapabilityProgress({ state, navigate }: Props) {
               <ArrowLeft size={18} className="text-surface-600" />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-surface-900">Capability Progress</h1>
+              <h1 className="text-lg font-bold text-surface-900">What Your Coach Is Learning About You</h1>
               <p className="text-sm text-surface-400">Your performance development over time</p>
             </div>
           </div>
@@ -93,6 +93,16 @@ export default function CapabilityProgress({ state, navigate }: Props) {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-emerald-700">Improving</h2><p className="text-sm mt-2">{capabilities.find(c => c.trend === 'improving')?.capability || 'More observations needed'}</p></div>
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-amber-700">Recurring risk</h2><p className="text-sm mt-2">{capabilities.find(c => c.knownWeakness)?.knownWeakness || 'No recurring risk observed yet'}</p></div>
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-primary-700">Current development focus</h2><p className="text-sm mt-2">{capabilities.find(c => c.nextRecommendation)?.nextRecommendation || 'Objection Handling'}</p></div>
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-surface-700">New signal</h2><p className="text-sm mt-2">{[...capabilities].sort((a, b) => Date.parse(b.lastUpdated || '') - Date.parse(a.lastUpdated || ''))[0]?.evidenceHistory?.slice(-1)[0]?.behaviorObserved || 'No new evidence yet'}</p></div>
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-surface-700">Last intervention</h2><p className="text-sm mt-2">{capabilities.find(c => c.recentIntervention)?.recentIntervention || 'None yet'}</p></div>
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-surface-700">Next challenge</h2><p className="text-sm mt-2">{capabilities.find(c => c.nextRecommendation)?.nextRecommendation || 'Bring a real performance moment to your coach'}</p></div>
+        </div>
+        {capabilities.length === 0 && <p className="rounded-xl bg-blue-50 p-5 text-sm text-blue-900">Your coach needs practice or real performance evidence before estimating a capability level.</p>}
+        {capabilities.length > 0 && <>
         {/* Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border border-surface-100 p-5 animate-fade-in">
@@ -112,6 +122,7 @@ export default function CapabilityProgress({ state, navigate }: Props) {
           </div>
         </div>
 
+        <details className="bg-white rounded-xl border border-surface-100 p-4"><summary className="cursor-pointer font-semibold text-surface-800">Detailed capability graphs</summary>
         {/* Radar Chart */}
         <div className="bg-white rounded-2xl border border-surface-100 p-6 animate-fade-in" style={{ animationDelay: '0.15s' }}>
           <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide mb-4 flex items-center gap-2">
@@ -169,11 +180,12 @@ export default function CapabilityProgress({ state, navigate }: Props) {
           </div>
         </div>
 
+        </details>
         {/* Individual Capabilities */}
         <div className="bg-white rounded-2xl border border-surface-100 p-6 animate-fade-in" style={{ animationDelay: '0.25s' }}>
           <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide mb-4">Detailed Breakdown</h2>
           <div className="space-y-4">
-            {capabilities
+            {[...capabilities]
               .sort((a, b) => a.currentScore - b.currentScore)
               .map((cap, idx) => (
               <div key={cap.capability} className="p-4 rounded-xl bg-surface-50 animate-slide-in" style={{ animationDelay: `${idx * 0.03}s` }}>
@@ -198,6 +210,7 @@ export default function CapabilityProgress({ state, navigate }: Props) {
                 <div className="h-2 bg-surface-200 rounded-full overflow-hidden mb-3">
                   <div className={`h-full rounded-full transition-all ${getBarColor(cap.currentScore)}`} style={{ width: `${(cap.currentScore / 5) * 100}%` }} />
                 </div>
+                <p className="text-xs text-surface-500 mb-3">Estimated level · Confidence {cap.confidence == null ? 'unknown' : cap.confidence >= 0.75 ? 'high' : cap.confidence >= 0.45 ? 'medium' : 'low'} · {cap.evidenceHistory?.length || 0} cited observations</p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                   {cap.knownWeakness && (
                     <div className="text-red-600">
@@ -229,6 +242,7 @@ export default function CapabilityProgress({ state, navigate }: Props) {
             ))}
           </div>
         </div>
+        </>}
       </main>
     </div>
   );

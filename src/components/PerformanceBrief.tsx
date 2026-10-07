@@ -16,43 +16,45 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
   const [brief, setBrief] = useState<PreparationBrief | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
 
   const interaction = state.interactions.find(i => i.id === interactionId);
 
   useEffect(() => {
-    if (!interactionId || !interaction) {
-      setError('This interaction is no longer available. Return to the dashboard and select it again.');
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
+    if (!interactionId || !interaction) { setLoading(false); return; }
     
     // Check if brief already exists
     const existing = store.getBriefForInteraction(interactionId);
     if (existing) {
       setBrief(existing);
       setLoading(false);
+      store.recordProductEvent('PREPARATION_VIEWED', interactionId);
       return;
     }
 
     // Generate new brief with capability history for personalization
-    generateBrief(interaction, state.capabilityHistory).then(b => {
+    let active = true;
+    if (interaction.status !== 'PREPARING') store.transitionInteraction(interactionId, 'PREPARING');
+    const previous = [...state.analyses].reverse().find(a => a.interactionId !== interactionId && a.capabilityDiagnosis.some(c => c.evidence.length > 0));
+    const priorLearning = previous?.missedOpportunities[0] || previous?.strengths[0];
+    generateBrief(interaction, state.capabilityHistory, state.companyContext, priorLearning).then(b => {
+      if (!active) return;
       store.addBrief(b);
-      store.updateInteraction(interactionId, { status: 'prepared' });
+      store.transitionInteraction(interactionId, 'PREPARED');
       setBrief(b);
-      setLoading(false);
-    }).catch(error => {
-      console.error('Brief generation failed:', error);
-      setError('We could not generate the brief. The AI provider took too long or was temporarily unavailable.');
-      setLoading(false);
-    });
-  }, [interactionId, interaction, retryCount]);
+      store.recordProductEvent('PREPARATION_VIEWED', interactionId);
+    }).catch(e => {
+      if (!active) return;
+      store.transitionInteraction(interactionId, 'PREPARATION_FAILED');
+      setError(e instanceof Error ? e.message : 'Preparation failed.');
+    }).finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [interactionId]);
 
 
 
-  if (loading) {
+  if (!loading && !brief) return <div className="min-h-screen bg-surface-50 flex items-center justify-center"><div className="bg-white p-6 rounded-xl max-w-md"><h1 className="text-xl font-bold">Performance plan unavailable</h1><p className="text-sm mt-2">{error || 'This performance moment could not be found.'}</p><button onClick={() => navigate('dashboard')} className="mt-4 px-4 py-2 bg-primary-600 text-white rounded-lg">Return home</button></div></div>;
+
+  if (loading || !brief) {
     return (
       <div className="min-h-screen bg-surface-50 flex items-center justify-center">
         <div className="text-center animate-pulse-soft">
@@ -61,22 +63,6 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
           </div>
           <p className="text-surface-600 font-medium">Preparing your brief...</p>
           <p className="text-sm text-surface-400 mt-1">Analyzing context and your capability profile</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !brief) {
-    return (
-      <div className="min-h-screen bg-surface-50 flex items-center justify-center p-4">
-        <div className="max-w-md bg-white rounded-2xl shadow-lg p-6 text-center">
-          <AlertTriangle size={32} className="text-amber-500 mx-auto mb-3" />
-          <h1 className="text-lg font-bold text-surface-900">Brief generation did not complete</h1>
-          <p className="text-sm text-surface-600 mt-2">{error || 'No brief is available for this interaction.'}</p>
-          <div className="mt-5 flex justify-center gap-3">
-            <button onClick={() => navigate('dashboard')} className="px-4 py-2 rounded-lg border border-surface-200 text-surface-700">Dashboard</button>
-            <button onClick={() => setRetryCount(count => count + 1)} className="px-4 py-2 rounded-lg bg-primary-600 text-white">Retry</button>
-          </div>
         </div>
       </div>
     );
@@ -91,21 +77,24 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
               <ArrowLeft size={18} className="text-surface-600" />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-surface-900">Pre-Performance Brief</h1>
+              <h1 className="text-lg font-bold text-surface-900">Performance Plan</h1>
               <p className="text-sm text-surface-400">{interaction?.customer} · {interaction?.name}</p>
             </div>
           </div>
           <button
-            onClick={() => navigate('scenario', interactionId || undefined)}
+            onClick={() => navigate('roleplay', interactionId || undefined)}
             className="px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
           >
             <Play size={16} />
-            Design practice scenario
+            Practice this moment
           </button>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
+        <div className="mb-4 text-xs font-semibold text-primary-700">{brief.sourceMode === 'COMPANY_COACH' ? 'Company Coach · Approved company context' : 'General Coach · No company information connected'}</div>
+        <details className="text-xs text-surface-600 mb-4"><summary className="cursor-pointer font-semibold">Why am I seeing this advice?</summary><p className="mt-2">Objective and known facts: customer context. Personal focus: {brief.sourceProvenance?.personalCoachingFocus === 'EMPLOYEE_HISTORY' ? 'your performance history' : 'coach recommendation while evidence builds'}. Likely concerns: model hypotheses. Commercial guidance: {brief.sourceProvenance?.commercialGuidance === 'COMPANY_POLICY' ? 'approved company context' : 'unknown until company context is supplied'}.</p></details>
+        {brief.priorLearning && <div className="bg-violet-50 border border-violet-100 rounded-xl p-4 mb-4 text-sm"><strong>What we learned last time</strong><p className="mt-1">{brief.priorLearning}</p><p className="mt-2"><strong>For this interaction:</strong> Your plan and practice focus on applying that learning to this moment.</p></div>}
         {/* Brain Map Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
           {/* Objective - Full Width */}
@@ -129,15 +118,16 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
           {/* Relevant Context */}
           <BriefCard
             icon={<Lightbulb size={16} className="text-amber-500" />}
-            title="Key Context"
+            title="What We Know"
             items={brief.relevantContext}
             color="amber"
           />
+          <BriefCard icon={<Lightbulb size={16} className="text-amber-500" />} title="What We Don't Know" items={brief.unknowns || ['Not specified']} color="amber" />
 
           {/* Likely Objections */}
           <BriefCard
             icon={<AlertTriangle size={16} className="text-red-500" />}
-            title="Likely Objections"
+            title="What You're Likely to Face"
             items={brief.likelyObjections}
             color="red"
           />
@@ -145,7 +135,7 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
           {/* Recommended Questions */}
           <BriefCard
             icon={<MessageCircle size={16} className="text-emerald-500" />}
-            title="Recommended Questions"
+            title="Questions Worth Asking"
             items={brief.recommendedQuestions}
             color="emerald"
           />
@@ -161,10 +151,11 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
           {/* Things to Avoid */}
           <BriefCard
             icon={<Ban size={16} className="text-rose-500" />}
-            title="Things to Avoid"
+            title="Don't Do This"
             items={brief.thingsToAvoid}
             color="rose"
           />
+          <BriefCard icon={<AlertTriangle size={16} className="text-red-500" />} title="Risks" items={brief.risks || []} color="red" />
 
           {/* Commercial Guidance - Full Width */}
           <div className="md:col-span-2 bg-white rounded-xl border border-surface-100 p-5">
@@ -213,25 +204,27 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
           <div className="md:col-span-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-100 p-5">
             <div className="flex items-center gap-2 mb-3">
               <Brain size={16} className="text-violet-500" />
-              <h3 className="text-sm font-semibold text-violet-700">Your Personal Coaching Focus</h3>
+              <h3 className="text-sm font-semibold text-violet-700">Your Personal Performance Risk</h3>
             </div>
             <p className="text-sm text-violet-800 leading-relaxed">{brief.personalCoachingFocus}</p>
+            <details className="text-sm text-violet-800 mt-3"><summary className="font-semibold cursor-pointer">Why your coach is focusing here</summary><p className="mt-2">{brief.whyPersonalized || 'Based on the available interaction context and performance history.'}</p></details>
           </div>
 
           {/* Practice Recommendation - Full Width */}
           <div className="md:col-span-2 bg-white rounded-xl border border-surface-100 p-5">
             <div className="flex items-center gap-2 mb-3">
               <Clock size={16} className="text-primary-500" />
-              <h3 className="text-sm font-semibold text-surface-700">Recommended Practice (5-10 minutes)</h3>
+              <h3 className="text-sm font-semibold text-surface-700">Practice the moment most likely to challenge you</h3>
             </div>
             <p className="text-sm text-surface-700 leading-relaxed">{brief.practiceRecommendation}</p>
             <button
-              onClick={() => navigate('scenario', interactionId || undefined)}
+              onClick={() => navigate('roleplay', interactionId || undefined)}
               className="mt-4 px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
             >
               <Play size={16} />
-              Build Practice Session
+              Practice this moment
             </button>
+            <button onClick={() => navigate('scenario', interactionId || undefined)} className="mt-3 text-sm font-semibold text-primary-700 underline">Customize practice scenario</button>
           </div>
         </div>
       </main>

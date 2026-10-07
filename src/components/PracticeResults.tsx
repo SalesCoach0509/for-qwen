@@ -21,7 +21,7 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
   const interaction = state.interactions.find(i => i.id === session?.interactionId);
 
   useEffect(() => {
-    if (!session) return;
+    if (!session) { setLoading(false); return; }
 
     // CRITICAL: Validate session is complete and has valid data
     const userTurns = session.turns.filter(t => t.role === 'user');
@@ -67,21 +67,33 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
         ...eval_,
         sessionId: session.id,
         interactionId: session.interactionId,
+        capabilityScores: eval_.capabilityScores.map(score => ({
+          ...score,
+          evidence: score.evidence.map(item => ({ ...item, interactionId: session.interactionId, sessionId: session.id, sourceId: session.id })),
+        })),
       };
-      store.addPracticeEvaluation(evaluationWithIds);
-      
       // Update capability history (async with judge validation)
       const updatedHistory = await updateCapabilityHistory(
         state.capabilityHistory,
-        eval_.capabilityScores,
+        evaluationWithIds.capabilityScores,
         'Practice session'
       );
-      store.updateCapabilityHistory(updatedHistory);
+      store.addPracticeEvaluation(evaluationWithIds);
+      store.updateCapabilityHistory(updatedHistory, session.interactionId);
+      if (evaluationWithIds.capabilityScores.some(score => score.evidence.length > 0)
+        && ['READY', 'READY_ONE_RISK_REMAINS'].includes(evaluationWithIds.readiness || '')) {
+        const priorAnalysis = [...state.analyses].reverse().find(a => a.interactionId === session.interactionId);
+        store.transitionInteraction(session.interactionId, priorAnalysis ? 'COMPLETED' : 'READY');
+        if (priorAnalysis) store.recordProductEvent('INTERVENTION_COMPLETED', session.interactionId, priorAnalysis.nextIntervention.id);
+      }
       
       setEvaluation(evaluationWithIds);
       setLoading(false);
     }).catch(error => {
       console.error('Evaluation generation failed:', error);
+      if (store.getState().interactions.find(i => i.id === session.interactionId)?.status === 'PRACTICING') {
+        store.transitionInteraction(session.interactionId, 'PRACTICE_FAILED');
+      }
       setLoading(false);
     });
   }, [session]);
@@ -128,6 +140,7 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
     if (score >= 1.5) return 'Developing';
     return 'Novice';
   };
+  const readiness = evaluation.readiness || (evaluation.capabilityScores.some(c => c.evidence.length > 0) ? 'PRACTICE_ONCE_MORE' : 'INSUFFICIENT_EVIDENCE');
 
   const getScoreColor = (score: number) => {
     if (score >= 4) return 'text-emerald-600 bg-emerald-50';
@@ -161,7 +174,7 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
             onClick={() => navigate('upload', interaction?.id)}
             className="px-4 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all flex items-center gap-2 text-sm"
           >
-            Continue to real interaction
+            I've done the real meeting
             <ArrowRight size={16} />
           </button>
         </div>
@@ -171,27 +184,18 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
         {/* Overall Readiness */}
         <div className="bg-white rounded-2xl border border-surface-100 p-6 animate-fade-in">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide">Overall Readiness</h2>
+            <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide">Are you ready for this moment?</h2>
             <span className={`text-2xl font-bold ${
-              evaluation.overallReadiness >= 70 ? 'text-emerald-600' :
-              evaluation.overallReadiness >= 50 ? 'text-amber-600' : 'text-red-600'
+              readiness === 'READY' ? 'text-emerald-600' :
+              readiness === 'READY_ONE_RISK_REMAINS' ? 'text-amber-600' : 'text-red-600'
             }`}>
-              {evaluation.overallReadiness}%
+              {readiness === 'READY' ? 'READY' : readiness === 'READY_ONE_RISK_REMAINS' ? 'READY — ONE RISK REMAINS' : readiness === 'INSUFFICIENT_EVIDENCE' ? 'INSUFFICIENT EVIDENCE' : 'PRACTICE ONCE MORE'}
             </span>
           </div>
-          <div className="h-3 bg-surface-100 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-1000 ${
-                evaluation.overallReadiness >= 70 ? 'bg-emerald-500' :
-                evaluation.overallReadiness >= 50 ? 'bg-amber-500' : 'bg-red-500'
-              }`}
-              style={{ width: `${evaluation.overallReadiness}%` }}
-            />
-          </div>
           <p className="text-sm text-surface-500 mt-3">
-            {evaluation.overallReadiness >= 70
+            {readiness === 'INSUFFICIENT_EVIDENCE' ? 'The conversation did not provide enough observable behaviour to assess readiness.' : readiness === 'READY'
               ? 'You demonstrated strong capability across most areas. Focus on maintaining this level in the real interaction.'
-              : evaluation.overallReadiness >= 50
+              : readiness === 'READY_ONE_RISK_REMAINS'
               ? 'Functional performance with clear areas for improvement. Focus on the recommended interventions.'
               : 'Significant gaps identified. Prioritize the recommended practice before the real interaction.'}
           </p>
@@ -199,7 +203,7 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
 
         {/* Capability Scores */}
         <div className="bg-white rounded-2xl border border-surface-100 p-6 animate-fade-in" style={{ animationDelay: '0.1s' }}>
-          <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide mb-4">Capability Assessment</h2>
+          <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide mb-4">The evidence</h2>
           <div className="space-y-3">
             {evaluation.capabilityScores.map((cap, idx) => (
               <div key={cap.capability} className="flex items-center gap-4 p-3 rounded-xl bg-surface-50 animate-slide-in" style={{ animationDelay: `${idx * 0.05}s` }}>
@@ -208,7 +212,7 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
                     <span className="text-sm font-medium text-surface-800">{cap.capability}</span>
                     {getTrendIcon(cap.capability)}
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getScoreColor(cap.score)}`}>
-                      {getLevelLabel(cap.score)}
+                      {cap.evidence.length ? getLevelLabel(cap.score) : 'Not observed'}
                     </span>
                   </div>
                   {cap.evidence.length > 0 && (
@@ -230,8 +234,8 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
                   )}
                 </div>
                 <div className="text-right">
-                  <span className="text-lg font-bold text-surface-800">{cap.score.toFixed(1)}</span>
-                  <span className="text-xs text-surface-400">/5</span>
+                  <span className="text-lg font-bold text-surface-800">{cap.evidence.length ? cap.score.toFixed(1) : '—'}</span>
+                  {cap.evidence.length > 0 && <span className="text-xs text-surface-400">/5</span>}
                   <div className="w-20 h-1.5 bg-surface-200 rounded-full mt-1 overflow-hidden">
                     <div
                       className="h-full bg-primary-500 rounded-full"

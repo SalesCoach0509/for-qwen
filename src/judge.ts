@@ -211,13 +211,12 @@ Return JSON:
     return JSON.parse(response.content);
   } catch (error) {
     console.error('Judge state update failed:', error);
-    // Fallback: accept the update
     return {
-      decision: 'UPDATED',
+      decision: 'NO_CHANGE',
       previousState: currentState,
-      newState: { ...currentState, currentScore: newEvidence.score },
-      reason: 'Judge failed, accepting update',
-      confidence: 0.4,
+      newState: currentState,
+      reason: 'Judge failed; capability state remains unchanged',
+      confidence: 0,
     };
   }
 }

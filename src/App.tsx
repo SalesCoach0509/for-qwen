@@ -11,9 +11,10 @@ import PracticeResults from './components/PracticeResults';
 import UploadTranscript from './components/UploadTranscript';
 import PostInteraction from './components/PostInteraction';
 import CapabilityProgress from './components/CapabilityProgress';
-import Roadmap from './components/Roadmap';
 import ValidationPanel from './components/ValidationPanel';
 import BeforeAfterDemo from './components/BeforeAfterDemo';
+import InteractionContextBar from './components/InteractionContextBar';
+import { checkBackendHealth, setLLMAvailable } from './llm-provider';
 
 type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap' | 'validation' | 'demo';
 
@@ -22,6 +23,7 @@ function App() {
   const [screen, setScreen] = useState<Screen>(state.user ? 'dashboard' : 'login');
   const [activeInteractionId, setActiveInteractionId] = useState<string | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [providerChecked, setProviderChecked] = useState(false);
 
   useEffect(() => {
     const unsubscribe = store.subscribe(() => {
@@ -30,11 +32,23 @@ function App() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    checkBackendHealth().then(health => {
+      if (active) setLLMAvailable(health.available, health.provider, health.model);
+    }).catch(() => {
+      if (active) setLLMAvailable(false);
+    }).finally(() => { if (active) setProviderChecked(true); });
+    return () => { active = false; };
+  }, []);
+
   const navigate = useCallback((s: Screen, interactionId?: string, sessionId?: string) => {
     setScreen(s);
     if (interactionId) setActiveInteractionId(interactionId);
     if (sessionId) setActiveSessionId(sessionId);
   }, []);
+
+  if (!providerChecked) return <div className="min-h-screen flex items-center justify-center text-slate-600">Connecting to your coach…</div>;
 
   if (!state.user) {
     return <Login onLogin={() => navigate('dashboard')} />;
@@ -48,23 +62,21 @@ function App() {
     case 'create':
       return <CreateInteraction state={state} navigate={navigate} />;
     case 'brief':
-      return <PerformanceBrief state={state} interactionId={activeInteractionId} navigate={navigate} />;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PerformanceBrief state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'scenario':
-      return <ScenarioPlanner state={state} interactionId={activeInteractionId || undefined} navigate={navigate} />;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><ScenarioPlanner key={activeInteractionId} state={state} interactionId={activeInteractionId || undefined} navigate={navigate} /></>;
     case 'roleplay':
-      return <Roleplay state={state} interactionId={activeInteractionId} navigate={navigate} />;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><Roleplay state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'results':
-      return <PracticeResults state={state} sessionId={activeSessionId} navigate={navigate} />;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PracticeResults state={state} sessionId={activeSessionId} navigate={navigate} /></>;
     case 'upload':
-      return <UploadTranscript state={state} interactionId={activeInteractionId} navigate={navigate} />;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><UploadTranscript state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'post':
-      return <PostInteraction state={state} interactionId={activeInteractionId} navigate={navigate} />;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PostInteraction state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'capabilities':
       return <CapabilityProgress state={state} navigate={navigate} />;
-    case 'roadmap':
-      return <Roadmap state={state} navigate={navigate} />;
     case 'validation':
-      return <ValidationPanel />;
+      return <ValidationPanel onBack={() => navigate('dashboard')} />;
     case 'demo':
       return <BeforeAfterDemo navigate={navigate} />;
     default:

@@ -10,6 +10,7 @@
 
 import { CapabilityHistory, CapabilityScore, CoachingIntervention } from './types';
 import { v4 as uuidv4 } from 'uuid';
+import { judgeCapabilityStateUpdate } from './judge';
 
 /**
  * Weighted capability score calculation
@@ -21,7 +22,7 @@ import { v4 as uuidv4 } from 'uuid';
  * - Difficulty: Higher pressure scenarios weighted higher
  */
 export function calculateWeightedScore(history: CapabilityHistory): number {
-  if (history.scores.length === 0) return 2.5; // Default for new capabilities
+  if (history.scores.length === 0) return 0; // No estimate without evidence
   
   const now = Date.now();
   const DAY_MS = 86400000;
@@ -175,12 +176,9 @@ export async function updateCapabilityHistory(
 ): Promise<CapabilityHistory[]> {
   const today = new Date().toISOString().split('T')[0];
   
-  // Import judge dynamically to avoid circular dependency
-  const { judgeCapabilityStateUpdate } = await import('./judge');
-  
   const updates = await Promise.all(current.map(async cap => {
     const newScore = newScores.find(s => s.capability === cap.capability);
-    if (!newScore) return cap;
+    if (!newScore || newScore.evidence.length === 0 || newScore.score < 1 || newScore.score > 5) return cap;
     
     // Use judge to decide if state should be updated
     const judgeResult = await judgeCapabilityStateUpdate(
@@ -234,6 +232,12 @@ export async function updateCapabilityHistory(
       { ...cap, scores: updatedScores, trend },
       patterns
     );
+    const priorInterventionOutcome = cap.recentIntervention ? {
+      intervention: cap.recentIntervention,
+      result: (newScore.score > cap.currentScore + 0.15 ? 'improved' : newScore.score < cap.currentScore - 0.15 ? 'regressed' : 'unchanged') as 'improved' | 'regressed' | 'unchanged',
+      evidenceIds: newScore.evidence.map(item => item.evidenceId || '').filter(Boolean),
+      date: today,
+    } : null;
     
     return {
       ...cap,
@@ -243,10 +247,35 @@ export async function updateCapabilityHistory(
       knownWeakness: newScore.weakness || cap.knownWeakness,
       recentIntervention: intervention.title,
       nextRecommendation: intervention.recommendedAction,
+      confidence: newScore.confidence,
+      evidenceHistory: [...(cap.evidenceHistory || []), ...newScore.evidence],
+      evidenceCoverage: (cap.evidenceHistory || []).length + newScore.evidence.length,
+      lastUpdated: new Date().toISOString(),
+      patterns,
+      interventions: [...(cap.interventions || []), intervention.title],
+      interventionOutcomes: priorInterventionOutcome ? [...(cap.interventionOutcomes || []), priorInterventionOutcome] : cap.interventionOutcomes || [],
     };
   }));
-  
-  return updates;
+
+  const newCapabilities = newScores.filter(score =>
+    !current.some(cap => cap.capability === score.capability) &&
+    score.evidence.length > 0 && score.score >= 1 && score.score <= 5
+  ).map(score => ({
+    capability: score.capability,
+    scores: [{ date: today, score: score.score, source }],
+    currentScore: score.score,
+    trend: 'stable' as const,
+    knownWeakness: score.weakness,
+    nextRecommendation: score.recommendedIntervention,
+    confidence: score.confidence,
+    evidenceHistory: score.evidence,
+    evidenceCoverage: score.evidence.length,
+    lastUpdated: new Date().toISOString(),
+    patterns: [],
+    interventions: [],
+    interventionOutcomes: [],
+  }));
+  return [...updates, ...newCapabilities];
 }
 
 /**

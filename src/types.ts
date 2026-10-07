@@ -12,6 +12,9 @@ export type CapabilityName =
 
 export type CapabilityLevel = 1 | 2 | 3 | 4 | 5;
 
+export type ObjectionHandlingDimension = 'Recognition' | 'Clarification' | 'Acknowledgement' | 'Response Relevance' | 'Value Preservation' | 'Commercial Discipline' | 'Conversational Control' | 'Advancement';
+export const OBJECTION_DIMENSIONS: ObjectionHandlingDimension[] = ['Recognition', 'Clarification', 'Acknowledgement', 'Response Relevance', 'Value Preservation', 'Commercial Discipline', 'Conversational Control', 'Advancement'];
+
 export interface CapabilityScore {
   capability: CapabilityName;
   score: number; // 1.0 - 5.0
@@ -21,9 +24,19 @@ export interface CapabilityScore {
   weakness?: string;
   recommendedIntervention?: string;
   confidence: number; // 0-1
+  dimensions?: Partial<Record<ObjectionHandlingDimension, number | null>>;
 }
 
 export interface EvidenceItem {
+  evidenceId?: string;
+  interactionId?: string;
+  sessionId?: string;
+  sourceType?: 'TRANSCRIPT' | 'PRACTICE' | 'OBSERVATION';
+  sourceId?: string;
+  speaker?: string;
+  sourceText?: string;
+  behaviorObserved?: string;
+  classification?: 'OBSERVED' | 'INFERRED';
   statement: string;
   source: 'transcript' | 'roleplay' | 'observation' | 'inference';
   confidence: number;
@@ -42,6 +55,14 @@ export interface CapabilityHistory {
   knownWeakness?: string;
   recentIntervention?: string;
   nextRecommendation?: string;
+  confidence?: number;
+  evidenceHistory?: EvidenceItem[];
+  evidenceCoverage?: number;
+  lastUpdated?: string;
+  scenarioDifficulty?: 'low' | 'medium' | 'high';
+  patterns?: string[];
+  interventions?: string[];
+  interventionOutcomes?: { intervention: string; result: 'improved' | 'unchanged' | 'regressed' | 'insufficient_evidence'; evidenceIds: string[]; date: string }[];
 }
 
 export interface User {
@@ -71,6 +92,30 @@ export interface CompanyContext {
   approvedMessaging?: string;
 }
 
+export type PerformanceMomentStatus =
+  | 'UPCOMING' | 'PREPARING' | 'PREPARED' | 'PRACTICING' | 'READY'
+  | 'PERFORMED' | 'ANALYZING' | 'ANALYZED' | 'IMPROVING' | 'COMPLETED'
+  | 'PREPARATION_FAILED' | 'PRACTICE_FAILED' | 'ANALYSIS_FAILED';
+
+export interface AiOperationMetadata {
+  operation: string;
+  provider: string;
+  model: string;
+  promptVersion: string;
+  requestId: string;
+  latency: number;
+  timestamp: string;
+  success: boolean;
+  errorType?: string;
+}
+
+export interface ProductEvent {
+  event: 'PERFORMANCE_MOMENT_CREATED' | 'PREPARATION_VIEWED' | 'PREPARATION_GENERATED' | 'PRACTICE_STARTED' | 'PRACTICE_COMPLETED' | 'REAL_PERFORMANCE_SUBMITTED' | 'ANALYSIS_COMPLETED' | 'EVIDENCE_GENERATED' | 'CAPABILITY_STATE_CHANGED' | 'INTERVENTION_COMPLETED' | 'REPEAT_INTERACTION' | 'TIME_TO_NEXT_PERFORMANCE';
+  interactionId: string;
+  timestamp: string;
+  detail?: string;
+}
+
 export interface Interaction {
   id: string;
   userId: string;
@@ -82,8 +127,13 @@ export interface Interaction {
   agenda: string;
   notes?: string;
   additionalContext?: string;
+  status: PerformanceMomentStatus;
   scenarioPlan?: ScenarioPlan;
-  status: 'upcoming' | 'prepared' | 'practiced' | 'performed' | 'analyzed';
+  stakeholder?: string;
+  stakeholderRole?: string;
+  interactionType?: string;
+  priority?: 'low' | 'medium' | 'high';
+  focusCapability?: CapabilityName;
   createdAt: string;
 }
 
@@ -125,6 +175,13 @@ export interface PreparationBrief {
   thingsToAvoid: string[];
   personalCoachingFocus: string;
   practiceRecommendation: string;
+  unknowns?: string[];
+  risks?: string[];
+  whyPersonalized?: string;
+  sourceMode?: 'GENERAL_COACH' | 'COMPANY_COACH';
+  companySource?: string;
+  priorLearning?: string;
+  sourceProvenance?: Record<string, 'CUSTOMER_CONTEXT' | 'EMPLOYEE_HISTORY' | 'COMPANY_POLICY' | 'MODEL_RECOMMENDATION' | 'UNKNOWN'>;
   generatedAt: string;
 }
 
@@ -145,6 +202,11 @@ export interface RoleplayConfig {
   commercialConstraints: string;
   hiddenPriorities: string[];
   desiredOutcome: string;
+  interactionContext?: string;
+  performancePlan?: string;
+  targetCapability?: CapabilityName;
+  employeeCapabilityState?: string;
+  targetBehavior?: string;
   module?: PracticeModule;
   scenarioTitle?: string;
   dealIntelligence?: DealIntelligence;
@@ -157,6 +219,8 @@ export interface RoleplayConfig {
 }
 
 export interface ScenarioPlan extends RoleplayConfig {
+  interactionId: string;
+  sourceMode?: 'REAL_CONTEXT' | 'DEMO';
   module: PracticeModule;
   scenarioTitle: string;
   dealIntelligence: DealIntelligence;
@@ -190,6 +254,7 @@ export interface PracticeEvaluation {
   sessionId: string;
   interactionId: string;
   overallReadiness: number; // 0-100
+  readiness?: 'READY' | 'READY_ONE_RISK_REMAINS' | 'PRACTICE_ONCE_MORE' | 'INSUFFICIENT_EVIDENCE';
   capabilityScores: CapabilityScore[];
   strengths: string[];
   weaknesses: string[];
@@ -203,6 +268,9 @@ export interface Transcript {
   content: string;
   source: 'upload' | 'paste' | 'demo';
   uploadedAt: string;
+  performancePlanId?: string;
+  practiceSessionIds?: string[];
+  capabilitySnapshotBefore?: CapabilityHistory[];
 }
 
 export interface PlanVsActual {
@@ -210,6 +278,9 @@ export interface PlanVsActual {
   actual: string;
   impact: 'Low' | 'Medium' | 'High';
   explanation: string;
+  evidenceIds?: string[];
+  sourceText?: string;
+  observation?: 'OBSERVED' | 'NOT_OBSERVED' | 'INSUFFICIENT_EVIDENCE';
 }
 
 export interface PostInteractionAnalysis {
@@ -234,6 +305,11 @@ export interface CoachingIntervention {
   recommendedAction: string;
   estimatedDuration: string;
   priority: 'high' | 'medium' | 'low';
+  behaviour?: string;
+  whyItMatters?: string;
+  exercise?: string;
+  difficulty?: 'low' | 'medium' | 'high';
+  successCriterion?: string;
 }
 
 export interface AppState {
@@ -247,4 +323,6 @@ export interface AppState {
   analyses: PostInteractionAnalysis[];
   capabilityHistory: CapabilityHistory[];
   companyContext: CompanyContext | null;
+  aiOperations?: AiOperationMetadata[];
+  productEvents?: ProductEvent[];
 }

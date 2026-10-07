@@ -40,7 +40,7 @@ const LLM_DIAGNOSTIC_TIMEOUT_MS = Number(import.meta.env.VITE_LLM_DIAGNOSTIC_TIM
 
 function getBackendUrl(): string {
   const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-  return isLocalDevelopment ? 'http://localhost:3001' : '';
+  return (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '') || (isLocalDevelopment ? 'http://localhost:3001' : '');
 }
 
 async function getBackendDiagnostic(): Promise<BackendDiagnostic> {
@@ -1015,7 +1015,7 @@ function createTestInteraction(type: string): Interaction {
     objective: template.objective || 'Test objective',
     agenda: template.agenda || 'Test agenda',
     notes: template.notes || 'Test notes',
-    status: 'upcoming',
+    status: 'UPCOMING',
     createdAt: new Date().toISOString(),
   };
 }

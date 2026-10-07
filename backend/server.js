@@ -58,6 +58,7 @@ app.get('/api/health', (req, res) => {
   const gatewayInfo = aiGateway.getInfo();
   console.log('🔍 Gateway info:', gatewayInfo);
   res.json({ 
+    release: 'performance-v1-merged-20261005',
     status: gatewayInfo.initialized ? 'ok' : 'degraded', 
     provider: gatewayInfo.provider,
     model: gatewayInfo.model,
@@ -711,7 +712,15 @@ app.post('/api/ai/roleplay/respond', async (req, res) => {
 Profile: ${config.personality}; pressure: ${config.pressureLevel}.
 Objectives: ${config.objectives?.join(', ') || 'Negotiate effectively'}.
 Likely objections: ${config.likelyObjections?.join(', ') || 'Price, timing, competition'}.
-Constraints: ${config.commercialConstraints || 'Budget constraints'}.
+Constraints: ${config.commercialConstraints || 'Unknown; do not invent policies'}.
+Interaction context: ${config.interactionContext || 'Not provided'}.
+Performance plan: ${config.performancePlan || 'Not provided'}.
+Practice focus: ${config.targetBehavior || config.targetCapability || 'Objection Handling'}.
+Employee learning: ${config.employeeCapabilityState || 'Insufficient evidence'}.
+Desired outcome: ${config.desiredOutcome || 'Not provided'}.
+Required behaviors: ${config.requiredBehaviors?.join(' | ') || 'Not provided'}.
+Forbidden moves: ${config.forbiddenMoves?.join(' | ') || 'Do not invent facts or unapproved concessions'}.
+Deal intelligence supplied by the employee: ${JSON.stringify(config.dealIntelligence || {})}.
 Module: ${config.module || 'General sales practice'}.
 Scenario: ${config.scenarioTitle || 'Not provided'}.
 Known facts you may safely reference: ${config.knownFacts?.join(' | ') || 'None provided'}.
@@ -733,7 +742,8 @@ Stay in character. Use the objection ladder progressively; do not introduce seve
         role: turn.role === 'ai' ? 'assistant' : turn.role,
         content: turn.content,
       })),
-      { role: 'user', content: userMessage || 'Start the conversation by introducing yourself and the meeting purpose.' }
+      ...(!conversationHistory?.length || conversationHistory.at(-1)?.role !== 'user' || conversationHistory.at(-1)?.content !== userMessage
+        ? [{ role: 'user', content: userMessage || 'Start the conversation by introducing yourself and the meeting purpose.' }] : [])
     ];
 
     const result = await aiGateway.generate(messages, {
@@ -759,6 +769,8 @@ Stay in character. Use the objection ladder progressively; do not introduce seve
 
     // Clean response to prevent prompt leakage
     let cleanedResponse = validateAndCleanRoleplayResponse(result.content, config.stakeholderRole);
+
+    if (!cleanedResponse.trim()) throw new Error('Stakeholder response was empty. Please retry.');
 
     // Determine conversation state
     const conversationState = determineConversationState(conversationHistory, cleanedResponse, userMessage);

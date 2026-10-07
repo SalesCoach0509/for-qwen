@@ -59,7 +59,7 @@ export default function Login({ onLogin }: LoginProps) {
         </form>
         
         <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Demo mode available - no API key required</p>
+          <p>Prepare for your next real performance moment</p>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { runFullValidation } from '../test/validation-harness';
 
-export default function ValidationPanel() {
+export default function ValidationPanel({ onBack }: { onBack: () => void }) {
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState<string[]>([]);
 
@@ -47,9 +47,10 @@ export default function ValidationPanel() {
 
   return (
     <div className="p-6 bg-gray-50 rounded-lg">
-      <h2 className="text-2xl font-bold mb-4">Validation Test Suite</h2>
+      <button onClick={onBack} className="text-sm font-semibold text-blue-700 mb-4">← Home</button>
+      <h2 className="text-2xl font-bold mb-4">MVP Validation</h2>
       <p className="text-gray-600 mb-4">
-        Run comprehensive validation tests for the AI Performance Coach system.
+        Product quality checks for provider response, practice behaviour, evidence grounding, transcript factuality, and failure integrity. This is an MVP tool, not part of the employee coaching journey.
       </p>
       
       <button

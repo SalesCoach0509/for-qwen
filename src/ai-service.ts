@@ -1,7 +1,8 @@
-import { Interaction, PreparationBrief, RoleplayConfig, PracticeEvaluation, CapabilityScore, PostInteractionAnalysis, CapabilityHistory, CapabilityName, EvidenceItem, DealIntelligence, ScenarioPlan } from './types';
-import { createLLMProvider, isLLMAvailable } from './llm-provider';
+import { Interaction, DealIntelligence, ScenarioPlan, PreparationBrief, RoleplayConfig, PracticeEvaluation, CapabilityScore, PostInteractionAnalysis, CapabilityHistory, EvidenceItem, CompanyContext } from './types';
+import { createLLMProvider, isLLMAvailable, RoleplayProvider } from './llm-provider';
 import { calculateWeightedScore, detectPatterns } from './capability-memory';
 import { v4 as uuidv4 } from 'uuid';
+import { judgeCapabilityAssessment } from './judge';
 
 // ============================================================================
 // PREPARATION BRIEF
@@ -9,25 +10,29 @@ import { v4 as uuidv4 } from 'uuid';
 
 export async function generateBrief(
   interaction: Interaction,
-  capabilityHistory?: CapabilityHistory[]
+  capabilityHistory?: CapabilityHistory[],
+  companyContext?: CompanyContext | null,
+  priorLearning?: string
 ): Promise<PreparationBrief> {
   // Check at runtime if backend is available
   if (isLLMAvailable()) {
     // CRITICAL: In LIVE MODE, do NOT silently fall back to mock
     // If LLM call fails, throw error so user knows something went wrong
-    return await generateBriefWithLLM(interaction, capabilityHistory);
+    return await generateBriefWithLLM(interaction, capabilityHistory, companyContext, priorLearning);
   }
   // Only use mock in DEMO MODE
-  return generateBriefMock(interaction, capabilityHistory);
+  return generateBriefMock(interaction, capabilityHistory, companyContext, priorLearning);
 }
 
 async function generateBriefWithLLM(
   interaction: Interaction,
-  capabilityHistory?: CapabilityHistory[]
+  capabilityHistory?: CapabilityHistory[],
+  companyContext?: CompanyContext | null,
+  priorLearning?: string
 ): Promise<PreparationBrief> {
   const provider = createLLMProvider();
   const systemPrompt = `You are an AI performance coach for enterprise sales. Generate a concise preparation brief.
-CRITICAL: Never invent pricing, discounts, or policies. If unknown, state "Not provided."
+CRITICAL: Never invent customer facts, stakeholder priorities, pricing, discounts, products, or company policies. If unknown, state "Unknown". Label likely concerns as hypotheses, not facts. Use employee history only when supported by observations.
 PERSONALIZATION: Use the employee's capability history to identify specific risks and tailor coaching focus.
 Output JSON:
 {
@@ -40,14 +45,16 @@ Output JSON:
   "recommendedPositioning": ["positioning1"],
   "thingsToAvoid": ["avoid1"],
   "personalCoachingFocus": "coaching text based on capability history",
-  "practiceRecommendation": "practice text based on capability history"
-}
-Keep every array to at most 3 concise items and keep the complete response below 1,200 tokens.`;
+  "practiceRecommendation": "practice text based on capability history",
+  "unknowns": ["material information not supplied"],
+  "risks": ["supported or conditional risk"],
+  "whyPersonalized": "short explanation tied to history, or insufficient evidence"
+}`;
 
   // Build capability context from history
   let capabilityContext = 'No capability history available.';
-  if (capabilityHistory && capabilityHistory.length > 0) {
-    const capabilities = capabilityHistory.map(cap => {
+  if (capabilityHistory && capabilityHistory.some(cap => cap.scores.length > 0)) {
+    const capabilities = capabilityHistory.filter(cap => cap.scores.length > 0).map(cap => {
       const weightedScore = calculateWeightedScore(cap);
       const patterns = detectPatterns(cap);
       return `- ${cap.capability}: ${weightedScore.toFixed(1)}/5 (trend: ${cap.trend}, weakness: ${cap.knownWeakness || 'none'}, patterns: ${patterns.length > 0 ? patterns.join('; ') : 'none'})`;
@@ -64,14 +71,24 @@ Context: ${interaction.additionalContext || 'None'}
 
 ${capabilityContext}
 
+Company context (approved information only): ${companyContext ? JSON.stringify(companyContext) : 'Unknown'}
+Learning from the previous evidenced performance moment: ${priorLearning || 'None available'}
+
 Generate a personalized brief that addresses the employee's specific risks based on their capability history.`;
 
   const response = await provider.chat(
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    { temperature: 0.4, maxTokens: 1400, jsonMode: true }
+    { temperature: 0.4, maxTokens: 1800, jsonMode: true, operation: 'PERFORMANCE_PLAN_GENERATION' }
   );
 
   const data = JSON.parse(response.content);
+  const lists = ['stakeholderPriorities', 'relevantContext', 'likelyObjections', 'recommendedQuestions', 'recommendedPositioning', 'thingsToAvoid'];
+  if (!data || typeof data !== 'object' || typeof data.objective !== 'string' || !data.objective.trim()
+    || lists.some(key => !Array.isArray(data[key]) || data[key].some((item: unknown) => typeof item !== 'string'))
+    || typeof data.personalCoachingFocus !== 'string' || typeof data.practiceRecommendation !== 'string'
+    || !data.commercialGuidance || !Array.isArray(data.commercialGuidance.tradeOffs) || !Array.isArray(data.commercialGuidance.escalationItems)) {
+    throw new Error('The AI returned an incomplete performance plan. Please retry.');
+  }
   return {
     id: uuidv4(), interactionId: interaction.id,
     objective: data.objective, stakeholderPriorities: data.stakeholderPriorities,
@@ -79,20 +96,27 @@ Generate a personalized brief that addresses the employee's specific risks based
     likelyObjections: data.likelyObjections, recommendedQuestions: data.recommendedQuestions,
     recommendedPositioning: data.recommendedPositioning, thingsToAvoid: data.thingsToAvoid,
     personalCoachingFocus: data.personalCoachingFocus, practiceRecommendation: data.practiceRecommendation,
+    unknowns: Array.isArray(data.unknowns) ? data.unknowns : [],
+    risks: Array.isArray(data.risks) ? data.risks : [],
+    whyPersonalized: data.whyPersonalized || 'Personalization is based on the available performance history.',
+    sourceMode: companyContext ? 'COMPANY_COACH' : 'GENERAL_COACH',
+    companySource: companyContext ? 'Approved company context' : 'No company context connected',
+    priorLearning,
+    sourceProvenance: { objective: 'CUSTOMER_CONTEXT', relevantContext: 'CUSTOMER_CONTEXT', commercialGuidance: companyContext ? 'COMPANY_POLICY' : 'UNKNOWN', personalCoachingFocus: capabilityHistory?.some(c => c.scores.length) ? 'EMPLOYEE_HISTORY' : 'MODEL_RECOMMENDATION', likelyObjections: 'MODEL_RECOMMENDATION' },
     generatedAt: new Date().toISOString(),
   };
 }
 
-function generateBriefMock(interaction: Interaction, capabilityHistory?: CapabilityHistory[]): PreparationBrief {
+function generateBriefMock(interaction: Interaction, capabilityHistory?: CapabilityHistory[], companyContext?: CompanyContext | null, priorLearning?: string): PreparationBrief {
   const notes = (interaction.notes || '').toLowerCase();
   
   // Build personalized coaching focus from capability history
   let coachingFocus = 'Focus on core objection handling techniques.';
   let practiceRec = 'Practice handling common objections. Duration: 7-10 minutes.';
   
-  if (capabilityHistory && capabilityHistory.length > 0) {
+  if (capabilityHistory && capabilityHistory.some(cap => cap.scores.length > 0)) {
     // Find weakest capability
-    const weakest = capabilityHistory
+    const weakest = capabilityHistory.filter(cap => cap.scores.length > 0)
       .map(cap => ({ ...cap, weightedScore: calculateWeightedScore(cap) }))
       .sort((a, b) => a.weightedScore - b.weightedScore)[0];
     
@@ -120,18 +144,27 @@ function generateBriefMock(interaction: Interaction, capabilityHistory?: Capabil
     stakeholderPriorities: extractPriorities(notes),
     relevantContext: extractContext(notes),
     commercialGuidance: {
-      discountLimits: 'Not provided / requires confirmation.',
-      relevantPackage: 'Core platform renewal with potential expansion.',
-      tradeOffs: ['Payment timing vs. total contract value', 'Phased rollout vs. full deployment'],
-      escalationItems: ['Discounts above authority require manager approval'],
-      note: 'Confirm discount authority with your manager before the meeting.',
+      discountLimits: companyContext?.discountRules || 'Unknown — confirm company policy.',
+      relevantPackage: companyContext?.products || 'Unknown — no product information connected.',
+      tradeOffs: [],
+      escalationItems: [],
+      note: companyContext ? 'Use only the approved company information shown here.' : 'Company pricing and discount policy are not connected.',
     },
-    likelyObjections: notes.includes('pric') ? ['"Your pricing is too high"', '"We got a lower quote"'] : ['"We need more time"'],
+    likelyObjections: notes.includes('pric') ? ['Possible pricing concern (inferred from your notes)'] : ['Likely objections are unknown.'],
     recommendedQuestions: ['What does success look like?', 'What\'s the business impact?', 'Who else is involved?'],
-    recommendedPositioning: notes.includes('renewal') ? ['Lead with invested value', 'Quantify switching costs'] : ['Connect to specific pain'],
+    recommendedPositioning: notes.includes('renewal') ? ['Ask what value the customer has realized so far.'] : ['Connect your response to a need the stakeholder confirms.'],
     thingsToAvoid: ['Don\'t lead with pricing', 'Don\'t rush past objections', 'Don\'t discount without authority'],
     personalCoachingFocus: coachingFocus,
     practiceRecommendation: practiceRec,
+    unknowns: ['Stakeholder priorities not confirmed', ...(!companyContext ? ['Company pricing and discount policy'] : [])],
+    risks: notes.includes('pric') ? ['Pricing pressure may test value positioning.'] : ['Specific risks need more context.'],
+    whyPersonalized: capabilityHistory?.some(c => c.scores.length > 0)
+      ? `Your recent performance history informed the focus on ${coachingFocus}.`
+      : 'No observed performance history yet. This plan is based on the interaction context.',
+    sourceMode: companyContext ? 'COMPANY_COACH' : 'GENERAL_COACH',
+    companySource: companyContext ? 'Approved company context' : 'No company context connected',
+    priorLearning,
+    sourceProvenance: { objective: 'CUSTOMER_CONTEXT', relevantContext: 'CUSTOMER_CONTEXT', commercialGuidance: companyContext ? 'COMPANY_POLICY' : 'UNKNOWN', personalCoachingFocus: capabilityHistory?.some(c => c.scores.length) ? 'EMPLOYEE_HISTORY' : 'MODEL_RECOMMENDATION', likelyObjections: 'MODEL_RECOMMENDATION' },
     generatedAt: new Date().toISOString(),
   };
 }
@@ -142,7 +175,7 @@ function extractPriorities(notes: string): string[] {
   if (notes.includes('implementation') || notes.includes('delay')) p.push('Implementation certainty');
   if (notes.includes('roi') || notes.includes('value')) p.push('ROI demonstration');
   if (notes.includes('competitor')) p.push('Vendor validation');
-  return p.length ? p : ['Understanding challenges', 'Clear next steps'];
+  return p.length ? p : ['Not confirmed — ask the stakeholder.'];
 }
 
 function extractContext(notes: string): string[] {
@@ -150,30 +183,31 @@ function extractContext(notes: string): string[] {
   if (notes.includes('renewal')) c.push('Renewal situation — relationship history matters');
   if (notes.includes('competitor')) c.push('Active competitive situation');
   if (notes.includes('delay')) c.push('Recent service issues may create negative sentiment');
-  return c.length ? c : ['Use provided context'];
+  return c.length ? c : ['No customer context provided yet.'];
 }
 
 // ============================================================================
 // ROLEPLAY CONFIG
 // ============================================================================
 
-export function generateRoleplayConfig(_interaction: Interaction, brief: PreparationBrief): RoleplayConfig {
-  if (_interaction.scenarioPlan) {
-    return _interaction.scenarioPlan;
-  }
-  const notes = (_interaction.notes || '').toLowerCase();
-  let role = 'Decision Maker', personality = 'Analytical and direct.', pressure: 'low' | 'medium' | 'high' = 'medium';
-  
-  if (notes.includes('cfo')) { role = 'CFO'; personality = 'Financially focused, skeptical.'; pressure = 'high'; }
-  else if (notes.includes('vp')) { role = 'VP Operations'; personality = 'Frustrated with delays.'; pressure = 'medium'; }
+export function generateRoleplayConfig(interaction: Interaction, brief: PreparationBrief): RoleplayConfig {
+  if (interaction.scenarioPlan) return { ...interaction.scenarioPlan, targetCapability: interaction.focusCapability || 'Objection Handling', employeeCapabilityState: brief.whyPersonalized, performancePlan: brief.personalCoachingFocus };
+  const notes = `${interaction.notes || ''} ${interaction.additionalContext || ''}`.toLowerCase();
+  const role = interaction.stakeholderRole || 'Stakeholder';
+  const personality = notes.includes('skeptic') ? 'Skeptical and direct.' : 'Professional and curious.';
+  const pressure: 'low' | 'medium' | 'high' = interaction.priority === 'high' ? 'high' : interaction.priority === 'low' ? 'low' : 'medium';
 
   return {
     stakeholderRole: role, personality, pressureLevel: pressure,
-    objectives: ['Test value establishment before price', 'Challenge with realistic objections', 'Assess commercial discipline'],
+    objectives: [interaction.objective || 'Understand the proposal', brief.personalCoachingFocus],
     likelyObjections: brief.likelyObjections.slice(0, 3),
-    commercialConstraints: 'Budget under scrutiny. Switching being considered.',
-    hiddenPriorities: ['Needs to look good to board', 'Reputation tied to decision'],
-    desiredOutcome: 'Secure renewal on strong terms before discussing expansion.',
+    commercialConstraints: 'Only use constraints explicitly stated in the interaction context.',
+    hiddenPriorities: [],
+    desiredOutcome: interaction.objective || 'Determine a useful next step.',
+    interactionContext: `${interaction.name}; ${interaction.customer}; ${interaction.agenda}; ${interaction.notes || ''}; ${interaction.additionalContext || ''}`,
+    performancePlan: `${brief.objective}; ${brief.personalCoachingFocus}; ${brief.recommendedQuestions.join('; ')}`,
+    targetCapability: interaction.focusCapability || 'Objection Handling',
+    employeeCapabilityState: brief.whyPersonalized || 'Insufficient performance evidence',
   };
 }
 
@@ -233,16 +267,18 @@ Known facts: ${deal.knownFacts || 'Not provided'}
 Unknowns: ${deal.unknowns || 'Not provided'}`;
   const response = await provider.chat(
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    { temperature: 0.25, maxTokens: 800, jsonMode: true }
+    { temperature: 0.25, maxTokens: 1800, jsonMode: true, operation: 'SCENARIO_PLAN_GENERATION' }
   );
   const data: Record<string, unknown> = JSON.parse(response.content);
-  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+  if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.scenarioTitle !== 'string' || !data.scenarioTitle.trim()
+    || !Array.isArray(data.objectives) || !data.objectives.some(item => typeof item === 'string' && item.trim())) {
     throw new Error('The live AI returned an invalid scenario plan. Please generate it again.');
   }
   const pressureByDifficulty: Record<DealIntelligence['difficulty'], 'low' | 'medium' | 'high'> = {
     foundation: 'low', standard: 'medium', advanced: 'high',
   };
   return {
+    interactionId: interaction.id,
     module: deal.module,
     dealIntelligence: deal,
     scenarioTitle: typeof data.scenarioTitle === 'string' ? data.scenarioTitle : `${moduleLabels[deal.module]} practice`,
@@ -251,11 +287,11 @@ Unknowns: ${deal.unknowns || 'Not provided'}`;
     pressureLevel: pressureByDifficulty[deal.difficulty],
     objectives: asList(data.objectives, [deal.sellerObjective || interaction.objective || 'Advance the conversation']),
     likelyObjections: asList(data.likelyObjections, briefObjections.slice(0, 3)),
-    commercialConstraints: typeof data.commercialConstraints === 'string' ? data.commercialConstraints : deal.commercialContext || 'Not provided',
+    commercialConstraints: deal.commercialContext || 'Unknown. Do not invent commercial authority or policies.',
     hiddenPriorities: asList(data.hiddenPriorities, ['Not provided']),
     desiredOutcome: typeof data.desiredOutcome === 'string' ? data.desiredOutcome : deal.desiredNextStep || 'Agree a specific next step',
-    knownFacts: asList(data.knownFacts, deal.knownFacts ? [deal.knownFacts] : ['Not provided']),
-    unknowns: asList(data.unknowns, deal.unknowns ? [deal.unknowns] : ['Not provided']),
+    knownFacts: deal.knownFacts.split('\n').map(s => s.trim()).filter(Boolean),
+    unknowns: deal.unknowns.split('\n').map(s => s.trim()).filter(Boolean),
     objectionLadder: asList(data.objectionLadder, briefObjections.slice(0, 3)),
     triggerConditions: asList(data.triggerConditions, ['Introduce the next objection only after a relevant seller response.']),
     requiredBehaviors: asList(data.requiredBehaviors, ['Acknowledge the concern', 'Ask a clarifying question', 'Secure a next step']),
@@ -288,25 +324,29 @@ async function generateEvalWithLLM(
   sessionId?: string
 ): Promise<PracticeEvaluation> {
   const provider = createLLMProvider();
-  const primaryCapability: CapabilityName = config.module === 'discovery'
-    ? 'Discovery'
-    : config.module === 'negotiation'
-      ? 'Negotiation'
-      : config.module === 'renewal-expansion'
-        ? 'Commercial Discipline'
-        : 'Objection Handling';
-  const moduleFocus = config.module === 'discovery'
-    ? 'For this discovery session, reward precise questions that uncover impact, stakeholders, process, urgency, and a committed next step. Penalize pitching before understanding the problem.'
-    : config.module === 'renewal-expansion'
-      ? 'For this renewal and expansion session, reward proof of realized value, stakeholder alignment, renewal-risk discovery, and disciplined expansion qualification. Penalize assumptions about adoption or budget.'
-      : 'For this objection and commercial session, reward acknowledgment, clarification, value reframing, commercial discipline, and a credible next step.';
   
   // Format conversation with turn numbers for evidence traceability
   const conversation = turns.map((t, i) => `[Turn ${i + 1}] ${t.role === 'ai' ? config.stakeholderRole : 'Employee'}: ${t.content}`).join('\n');
+  const extracted = await provider.chat([
+    { role: 'system', content: 'Extract only observable employee behaviours from the practice conversation. Return JSON {"evidence":[{"turnNumber":1,"sourceText":"exact employee words","behaviorObserved":"observable behaviour","classification":"OBSERVED"}]}. Every sourceText must be an exact substring of the cited employee turn. No recommendation is evidence. If none, return an empty array.' },
+    { role: 'user', content: conversation },
+  ], { temperature: 0.1, jsonMode: true, operation: 'PRACTICE_EVIDENCE_EXTRACTION' });
+  const extractionData = JSON.parse(extracted.content);
+  const groundedEvidence: EvidenceItem[] = (Array.isArray(extractionData.evidence) ? extractionData.evidence : []).flatMap((item: any) => {
+    const turnNumber = Number(item.turnNumber);
+    const turn = turns[turnNumber - 1];
+    const quote = String(item.sourceText || '').trim();
+    if (!turn || turn.role !== 'user' || quote.length < 3 || !turn.content.includes(quote)) return [];
+    return [{
+      evidenceId: uuidv4(), interactionId: '', sessionId: sessionId || '', sourceType: 'PRACTICE' as const,
+      sourceId: sessionId || '', speaker: 'Employee', sourceText: quote,
+      behaviorObserved: String(item.behaviorObserved || 'Employee response'),
+      classification: 'OBSERVED' as const, statement: String(item.behaviorObserved || 'Employee response'),
+      source: 'roleplay' as const, confidence: 0.8, observationType: 'observed' as const, turnNumber,
+    }];
+  });
   
-  const systemPrompt = `You are an expert sales coach evaluating seller behavior. You MUST follow this exact rubric.
-
-MODULE FOCUS: ${moduleFocus}
+  const systemPrompt = `You are an expert sales coach evaluating objection handling. You MUST follow this exact rubric.
 
 STEP 1: IDENTIFY THE BEHAVIOR
 Look at what the employee ACTUALLY DID in their response:
@@ -375,52 +415,52 @@ Output JSON with this exact structure:
   "recommendedIntervention": "<specific practice>",
   "overallReadiness": <number 0-100>,
   "otherCapabilities": []
-}
-Use at most 3 evidence items and return the complete response below 1,000 tokens.`;
-
-  const scenarioContext = `Scenario title: ${config.scenarioTitle || 'General objection handling'}
-Module: ${config.module || 'General sales practice'}
-Buyer: ${config.stakeholderRole}
-Required behaviors: ${config.requiredBehaviors?.join(' | ') || 'Acknowledge, clarify, and advance the conversation'}
-Commercial guardrails: ${config.forbiddenMoves?.join(' | ') || 'Do not concede without understanding the concern'}
-Known facts: ${config.knownFacts?.join(' | ') || 'None provided'}
-Unknowns that must not be treated as facts: ${config.unknowns?.join(' | ') || 'None provided'}`;
+}`;
 
   const response = await provider.chat(
-    [{ role: 'system', content: systemPrompt }, { role: 'user', content: `${scenarioContext}\n\n${conversation}` }],
-    { temperature: 0.2, maxTokens: 1200, jsonMode: true }
+    [{ role: 'system', content: `${systemPrompt}\nOnly evaluate behaviours in the supplied evidence. If evidence is empty, score 0 and overallReadiness 0; report insufficient evidence.` }, { role: 'user', content: `Scenario: ${config.stakeholderRole}\nEvidence: ${JSON.stringify(groundedEvidence)}\n\n${conversation}` }],
+    { temperature: 0.2, jsonMode: true, operation: 'PRACTICE_CAPABILITY_EVALUATION' }
   );
 
   const data = JSON.parse(response.content);
   
   // Validate evidence has turn references
-  const validatedEvidence = data.evidence.map((e: any) => ({
-    statement: e.statement,
-    source: 'roleplay' as const,
-    confidence: e.confidence,
-    observationType: e.observationType,
-    turnNumber: e.turnNumber, // Critical for traceability
-  }));
+  const validatedEvidence = groundedEvidence;
+  let supportedScore = validatedEvidence.length > 0 && Number(data.objectionHandlingScore) >= 1 && Number(data.objectionHandlingScore) <= 5
+    ? Number(data.objectionHandlingScore) : 0;
+  if (supportedScore) {
+    const verdict = await judgeCapabilityAssessment({
+      capability: 'Objection Handling', score: supportedScore,
+      evidence: validatedEvidence.map(item => ({ statement: `${item.behaviorObserved}: ${item.sourceText}`, observationType: item.observationType || 'observed' })),
+    });
+    if (verdict.verdict !== 'PASS') supportedScore = 0;
+  }
+  let nextPractice = 'Practice a fuller conversation so your coach can observe the target behaviour.';
+  if (supportedScore) {
+    const recommendation = await provider.chat([
+      { role: 'system', content: 'Recommend exactly one short practice intervention for the diagnosed objection-handling gap. Ground the recommendation in supplied evidence. Return JSON {"recommendation":"specific exercise","successCriterion":"observable success criterion"}. Do not call a recommendation evidence.' },
+      { role: 'user', content: JSON.stringify({ score: supportedScore, weakness: data.weakness, evidence: validatedEvidence }) },
+    ], { temperature: 0.2, jsonMode: true, operation: 'PRACTICE_INTERVENTION_GENERATION' });
+    const recommendationData = JSON.parse(recommendation.content);
+    nextPractice = `${String(recommendationData.recommendation || data.recommendedIntervention || 'Practice the identified gap.')} Success: ${String(recommendationData.successCriterion || 'Demonstrate the target behaviour in the next practice.')}`;
+  }
 
   return {
     id: uuidv4(), 
     sessionId: sessionId || '', 
     interactionId: '',
-    overallReadiness: data.overallReadiness,
+    overallReadiness: supportedScore ? Number(data.overallReadiness) || 0 : 0,
+    readiness: !supportedScore ? 'INSUFFICIENT_EVIDENCE' : supportedScore >= 3.5 ? 'READY' : supportedScore >= 2.5 ? 'READY_ONE_RISK_REMAINS' : 'PRACTICE_ONCE_MORE',
     capabilityScores: [
       {
-        capability: primaryCapability, score: data.objectionHandlingScore, level: data.objectionHandlingLevel,
-        evidence: validatedEvidence,
-        strength: data.strength, weakness: data.weakness, recommendedIntervention: data.recommendedIntervention, confidence: 0.85,
+        capability: 'Objection Handling', score: supportedScore, level: supportedScore ? data.objectionHandlingLevel : 1,
+        evidence: supportedScore ? validatedEvidence : [],
+        strength: supportedScore ? data.strength : undefined, weakness: supportedScore ? data.weakness : undefined, recommendedIntervention: nextPractice, confidence: supportedScore ? 0.85 : 0,
       },
-      ...data.otherCapabilities.map((c: any) => ({
-        capability: c.capability as CapabilityName, score: c.score, level: Math.ceil(c.score) as any,
-        evidence: [{ statement: c.evidence, source: 'roleplay' as const, confidence: 0.8, observationType: 'observed' }], confidence: 0.8,
-      })),
     ],
-    strengths: data.strength ? [data.strength] : [],
-    weaknesses: data.weakness ? [data.weakness] : [],
-    nextPractice: data.recommendedIntervention,
+    strengths: supportedScore && data.strength ? [data.strength] : [],
+    weaknesses: supportedScore && data.weakness ? [data.weakness] : [],
+    nextPractice,
     generatedAt: new Date().toISOString(),
   };
 }
@@ -430,7 +470,7 @@ function generateEvalMock(
   _config: RoleplayConfig,
   sessionId?: string
 ): PracticeEvaluation {
-  const userTurns = turns.filter(t => t.role === 'user');
+  const userTurns = turns.map((turn, index) => ({ ...turn, turnNumber: index + 1 })).filter(t => t.role === 'user');
   
   // Adversarial detection: verbosity without substance
   const avgTurnLength = userTurns.reduce((sum, t) => sum + t.content.length, 0) / Math.max(userTurns.length, 1);
@@ -452,10 +492,10 @@ function generateEvalMock(
   const hasClarity = userTurns.some(t => t.content.length < 150 && /value|concern|question/i.test(t.content));
   
   // Core behavioral detection
-  const hasAck = userTurns.some(t => /understand|hear|appreciate/i.test(t.content));
+  const hasAck = userTurns.some(t => /\b(?:I understand|I hear you|I appreciate|that sounds|I can see)\b/i.test(t.content));
   const hasClarify = userTurns.some(t => t.content.includes('?') && /help me understand|tell me more|what specifically|what's driving/i.test(t.content));
   const hasValue = userTurns.some(t => /value|worth|impact|switching|cost of|investment/i.test(t.content));
-  const hasDiscount = userTurns.some(t => /discount|reduce|%/i.test(t.content));
+  const hasDiscount = userTurns.some(t => /(?:offer|give|provide|apply) (?:you )?(?:a )?(?:\d+% )?discount|(?:reduce|lower) (?:the )?price by|\d+% off/i.test(t.content));
   
   // Scoring logic with adversarial adjustments
   let score = 2.0, level: 1|2|3|4|5 = 2;
@@ -483,15 +523,16 @@ function generateEvalMock(
 
   // Evidence with turn references for traceability
   const evidence: EvidenceItem[] = [];
-  userTurns.forEach((turn, idx) => {
-    const turnNum = idx + 1;
-    if (/understand|hear|appreciate/i.test(turn.content)) {
+  userTurns.forEach((turn) => {
+    const turnNum = turn.turnNumber;
+    if (/\b(?:I understand|I hear you|I appreciate|that sounds|I can see)\b/i.test(turn.content)) {
       evidence.push({ 
         statement: `Turn ${turnNum}: Acknowledged concern - "${turn.content.substring(0, 50)}..."`, 
         source: 'roleplay', 
         confidence: 0.9, 
         observationType: 'observed',
-        turnNumber: turnNum 
+        turnNumber: turnNum,
+        evidenceId: uuidv4(), sessionId: sessionId || '', sourceId: sessionId || '', sourceType: 'PRACTICE', speaker: 'Employee', sourceText: turn.content, behaviorObserved: 'Acknowledged concern', classification: 'OBSERVED',
       });
     }
     if (turn.content.includes('?') && /help me understand|tell me more|what specifically|what's driving/i.test(turn.content)) {
@@ -500,7 +541,8 @@ function generateEvalMock(
         source: 'roleplay', 
         confidence: 0.85, 
         observationType: 'observed',
-        turnNumber: turnNum 
+        turnNumber: turnNum,
+        evidenceId: uuidv4(), sessionId: sessionId || '', sourceId: sessionId || '', sourceType: 'PRACTICE', speaker: 'Employee', sourceText: turn.content, behaviorObserved: 'Asked a clarifying question', classification: 'OBSERVED',
       });
     }
     if (/value|worth|impact|switching|cost of|investment/i.test(turn.content)) {
@@ -509,32 +551,29 @@ function generateEvalMock(
         source: 'roleplay', 
         confidence: 0.85, 
         observationType: 'observed',
-        turnNumber: turnNum 
+        turnNumber: turnNum,
+        evidenceId: uuidv4(), sessionId: sessionId || '', sourceId: sessionId || '', sourceType: 'PRACTICE', speaker: 'Employee', sourceText: turn.content, behaviorObserved: 'Discussed value or impact', classification: 'OBSERVED',
       });
     }
-    if (/discount|reduce|%/i.test(turn.content)) {
+    if (/(?:offer|give|provide|apply) (?:you )?(?:a )?(?:\d+% )?discount|(?:reduce|lower) (?:the )?price by|\d+% off/i.test(turn.content)) {
       evidence.push({ 
         statement: `Turn ${turnNum}: Offered discount - "${turn.content.substring(0, 50)}..."`, 
         source: 'roleplay', 
         confidence: 0.9, 
         observationType: 'observed',
-        turnNumber: turnNum 
+        turnNumber: turnNum,
+        evidenceId: uuidv4(), sessionId: sessionId || '', sourceId: sessionId || '', sourceType: 'PRACTICE', speaker: 'Employee', sourceText: turn.content, behaviorObserved: 'Offered a concession', classification: 'OBSERVED',
       });
     }
   });
 
   const scores: CapabilityScore[] = [
     {
-      capability: 'Objection Handling', score, level, evidence,
+      capability: 'Objection Handling', score: evidence.length ? score : 0, level, evidence,
       strength: hasValue ? 'Reframed around value' : hasClarify ? 'Asked clarifying questions' : undefined,
       weakness: hasDiscount ? 'Discounted before exploring alternatives' : !hasClarify ? 'Did not ask clarifying questions' : isVerbose && !hasSubstance ? 'Verbose response without substance' : undefined,
       recommendedIntervention: hasDiscount ? 'Practice preserving value under pricing pressure.' : !hasClarify ? 'Practice: "Can you help me understand what\'s driving that concern?"' : isVerbose && !hasSubstance ? 'Practice concise, substantive responses that address the concern directly.' : 'Practice handling layered objections.',
       confidence: 0.85,
-    },
-    {
-      capability: 'Commercial Discipline', score: hasDiscount ? 2.0 : 3.2, level: hasDiscount ? 2 : 3,
-      evidence: [{ statement: hasDiscount ? 'Offered price concession' : 'Maintained boundaries', source: 'roleplay', confidence: 0.85, observationType: 'observed' }],
-      confidence: 0.8,
     },
   ];
 
@@ -542,7 +581,8 @@ function generateEvalMock(
     id: uuidv4(), 
     sessionId: sessionId || '', 
     interactionId: '',
-    overallReadiness: Math.min(100, Math.round((scores.reduce((s, c) => s + c.score, 0) / scores.length / 5) * 100)),
+    overallReadiness: evidence.length ? Math.min(100, Math.round((score / 5) * 100)) : 0,
+    readiness: !evidence.length ? 'INSUFFICIENT_EVIDENCE' : score >= 3.5 ? 'READY' : score >= 2.5 ? 'READY_ONE_RISK_REMAINS' : 'PRACTICE_ONCE_MORE',
     capabilityScores: scores,
     strengths: scores.filter(c => c.strength).map(c => c.strength!),
     weaknesses: scores.filter(c => c.weakness).map(c => c.weakness!),
@@ -592,10 +632,8 @@ function analyzeMockLegacy(transcript: string, interaction: Interaction, _brief:
 // ROLEPLAY RESPONSES
 // ============================================================================
 
-let roleplayState = { turnCount: 0, objectionIntroduced: false };
-
 export function resetRoleplayState() {
-  roleplayState = { turnCount: 0, objectionIntroduced: false };
+  // Session state is held in PracticeSession; no shared module state.
 }
 
 export interface RoleplayResponse {
@@ -625,7 +663,7 @@ export async function getRoleplayResponse(
   }
   // Only use mock in DEMO MODE
   return {
-    response: getRoleplayMock(userMessage, config),
+    response: getRoleplayMock(userMessage, config, conversationHistory || []),
     sessionId: sessionId,
     conversationState: 'IN_PROGRESS'
   };
@@ -637,11 +675,7 @@ async function getRoleplayLLM(
   conversationHistory?: { role: 'ai' | 'user'; content: string }[],
   sessionId?: string
 ): Promise<RoleplayResponse> {
-  roleplayState.turnCount++;
-  
   // Use the specialized RoleplayProvider that calls the dedicated endpoint
-  const { RoleplayProvider } = await import('./llm-provider');
-  
   const result = await RoleplayProvider.getRoleplayResponse(
     userMessage,
     config,
@@ -652,21 +686,15 @@ async function getRoleplayLLM(
   return result;
 }
 
-function getRoleplayMock(userMessage: string, _config: RoleplayConfig): string {
-  roleplayState.turnCount++;
+function getRoleplayMock(userMessage: string, config: RoleplayConfig, history: { role: 'ai' | 'user'; content: string }[]): string {
   const lower = userMessage.toLowerCase();
-  
-  if (roleplayState.turnCount === 1) return "Thanks for meeting. We need to talk about the contract and pricing. We've been looking at options.";
-  if (userMessage.includes('?') && roleplayState.turnCount < 4) return "Six months in and only 70% implementation. My team extended the legacy system because of your delays.";
-  if (!roleplayState.objectionIntroduced && roleplayState.turnCount >= 3) {
-    roleplayState.objectionIntroduced = true;
-    return "I appreciate that, but DataFlow Pro quoted us 15% less. What can you do on price?";
-  }
-  if (/discount|%|reduce/i.test(lower)) return "My counterpart pays 30% less. Can you match that?";
-  if (/value|worth|switching/i.test(lower)) return "That's... actually a fair point. I hadn't thought about switching costs.";
-  if (/understand|help me/i.test(lower)) return "Okay, I'm listening. What does that look like?";
-  if (roleplayState.turnCount < 6) return "I need a concrete number. What's the best you can do?";
-  return "Okay, send me the proposal by Friday.";
+  const concern = config.likelyObjections[0] || 'I need to understand why this is the right decision.';
+  if (!history.length) return `Thanks for meeting. ${concern} How would you approach that?`;
+  if (/discount|reduce|price match|%/.test(lower)) return 'Before I consider that, how would the change address the concern I raised?';
+  if (userMessage.includes('?')) return `The issue for me is ${concern.replace(/^possible /i, '').replace(/[.!?]$/, '').toLowerCase()}. What would change for us?`;
+  if (/next step|follow.up|schedule|send (you|me)/.test(lower)) return 'That could work. What specifically will you send, and when?';
+  if (/value|impact|outcome|benefit/.test(lower)) return 'I see the point. Can you connect that to the outcome we need from this interaction?';
+  return `I hear you. ${concern} What evidence can you give me?`;
 }
 
 // ============================================================================

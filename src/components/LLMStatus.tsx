@@ -15,8 +15,8 @@ export default function LLMStatus() {
         console.log('✅ LLMStatus: Backend is available, setting LIVE mode');
         setLLMAvailable(true, health.provider, health.model);
         setInfo({
-          name: health.provider || 'Gemini',
-          model: health.model || 'gemini-3.6-flash',
+          name: health.provider || 'Configured provider',
+          model: health.model || 'Unknown model',
           isLive: true,
         });
       } else {

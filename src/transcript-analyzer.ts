@@ -9,6 +9,7 @@
 
 import { Interaction, PreparationBrief, PostInteractionAnalysis, PlanVsActual, CoachingIntervention, EvidenceItem, CapabilityName } from './types';
 import { createLLMProvider, isLLMAvailable } from './llm-provider';
+import { analyzeSemantically } from './semantic-analysis';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface TranscriptSegment {
@@ -290,14 +291,14 @@ export async function analyzeTranscript(
   if (isLLMAvailable()) {
     // CRITICAL: In LIVE MODE, do NOT silently fall back to rules
     // If LLM call fails, throw error so user knows something went wrong
-    return await analyzeWithLLM(transcript, interaction, brief, segments, behaviors);
+    return await analyzeSemantically(transcript, interaction, brief);
   }
   
   // Only use rules in DEMO MODE
   return analyzeWithRules(transcript, interaction, brief, segments, behaviors);
 }
 
-async function analyzeWithLLM(
+export async function analyzeWithLLM(
   transcript: string,
   interaction: Interaction,
   brief: PreparationBrief,
@@ -400,11 +401,11 @@ Preparation Brief Key Points:
 Transcript (with line numbers):
 ${numberedTranscript}
 
-Analyze the interaction following the rubric strictly. Every piece of evidence MUST reference specific line numbers. Use at most 3 evidence items and keep the complete response below 1,400 tokens.`;
+Analyze the interaction following the rubric strictly. Every piece of evidence MUST reference specific line numbers.`;
 
   const response = await provider.chat(
     [{ role: 'system', content: systemPrompt }, { role: 'user', content: userPrompt }],
-    { temperature: 0.2, maxTokens: 1600, jsonMode: true }
+    { temperature: 0.2, jsonMode: true }
   );
 
   const data = JSON.parse(response.content);
