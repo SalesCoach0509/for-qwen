@@ -1,9 +1,7 @@
-DEPLOYMENT FIX 2 — 2026-10-09
+Render deployment correction
 
-The supplied backend lockfile is valid (lockfileVersion 3). A fresh npm ci --omit=dev install passed using it. The prior wildcard Docker COPY allowed a missing backend lockfile to go unnoticed until npm ci. Both Docker COPY instructions now explicitly require package.json and package-lock.json.
+Backend lockfiles are optional for Docker COPY. When backend/package-lock.json is supplied, npm ci --omit=dev uses it. When it is absent, npm install --omit=dev resolves dependencies from backend/package.json and generates a lockfile in the image. Invalid existing lockfiles still fail instead of being silently ignored.
 
-Upload every file in this folder into the Railway-linked repository build root. In particular, both package-lock.json and backend/package-lock.json must be committed. Keep backend/contracts/ as well. Set Railway Root Directory to the directory containing this Dockerfile. Redeploy the updated commit.
+Verified a fresh backend install with no lockfile, followed by four API/roleplay tests. Docker and Render deployment were not run locally. Installing without a lockfile can resolve newer dependency versions; retaining the supplied lockfile is preferable.
 
-Do not replace npm ci with npm install: the supplied locks preserve tested dependencies. If Docker reports backend/package-lock.json missing at COPY, the uploaded repository or selected root is still incomplete.
-
-Verification: fresh backend npm ci --omit=dev passed. Prior correction passed frontend TypeScript/build/specification checks and four API/roleplay tests. No Docker engine is available here; Railway deployment remains unverified.
+To apply to an existing Render repository, replace its Dockerfile with this file and deploy the new commit. For a complete replacement, upload all package contents. Root Directory must point to the directory containing Dockerfile; Dockerfile Path ./Dockerfile; Docker Build Context .; Docker Command blank. This package still requires root package-lock.json for the frontend and backend/contracts/ for contract data.

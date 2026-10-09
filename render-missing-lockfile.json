@@ -1,0 +1,24 @@
+[
+  {
+    "args": [
+      "C:/Users/satyam srivastava/AppData/Local/pnpm/store/v11/links/@/npm/10.9.9/fccb2ef5d2c64380fbb9008452b387901dce7206f80f49dc0231ff728d9806e0/node_modules/npm/bin/npm-cli.js",
+      "install",
+      "--omit=dev",
+      "--cache",
+      "C:\\Users\\satyam srivastava\\Documents\\Codex\\2026-10-05\\re\\work\\npm-cache-release"
+    ],
+    "exitCode": 0,
+    "stdout": "\nadded 72 packages, and audited 73 packages in 8s\n\n18 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "--test",
+      "C:\\Users\\satyam srivastava\\Documents\\Codex\\2026-10-05\\re\\outputs\\AI_Performance_Coach_Render_Fix\\tests\\roleplay-contract.test.mjs",
+      "tests/backend-smoke.test.mjs"
+    ],
+    "exitCode": 0,
+    "stdout": "✔ structured state rejects malformed dialogue and prompt leakage (4.9325ms)\n✔ one repair, correct roles, deduplication and isolated session identity (1.0161ms)\n✔ invalid second output fails without a result (1.7283ms)\n✔ production server serves the merged release and preserves roleplay context across the provider boundary (1116.092ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1513.3482\n",
+    "stderr": ""
+  }
+]

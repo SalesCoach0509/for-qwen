@@ -21,10 +21,10 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy backend package files
-COPY backend/package.json backend/package-lock.json ./backend/
+COPY backend/package*.json ./backend/
 
-# Install locked production backend dependencies
-RUN cd backend && npm ci --omit=dev
+# Use the lockfile when supplied; tolerate uploads that omit it
+RUN cd backend && if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
 
 # Copy all backend source files including ai-gateway (excluding node_modules via .dockerignore)
 COPY backend/ ./backend/

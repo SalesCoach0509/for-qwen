@@ -1,5 +1,5 @@
 {
-  "correction": "2026-10-09-explicit-lockfiles",
+  "correction": "render-optional-backend-lockfile",
   "files": [
     {
       "path": ".dockerignore",
@@ -55,7 +55,7 @@
     },
     {
       "path": "DEPLOYMENT_FIX.txt",
-      "sha256": "3c80e2c5a091adbf99e87d62e7f50be7d1fe93444c3137fc978e88a8ad09acc7"
+      "sha256": "6c26f914ad88fc5724ed6c86a3642866b7fa22624e66fd0c97bb5db74070c134"
     },
     {
       "path": "dist/assets/index-B-ndNpu1.js",
@@ -83,7 +83,7 @@
     },
     {
       "path": "Dockerfile",
-      "sha256": "f3ea2186524ab6951336a2d59084873b94a5155de13bd60c30ae3aa0d272942b"
+      "sha256": "031d019a18fd75fe1669cc32966050ca3e7b2d9cd2ec8d62b0d5fcb325010f70"
     },
     {
       "path": "docs/AI_OPERATION_CATALOG.md",
@@ -159,7 +159,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "5c5a91e08d1e04fe5325b4490f8e108dfdd700d5c72e5c3cf02278910db05a6b"
+      "sha256": "dfcaa03912ea8ead2ea2ecf78da361cead898887d8c57569300fbb988e0f22ef"
     },
     {
       "path": "scripts/check-spec.mjs",
@@ -368,6 +368,10 @@
     {
       "path": "verification/deployment-fix.json",
       "sha256": "49155cf7ded1d07e0fc4c109ef2fdf7442481edd8ea85e60a09860b1b8217256"
+    },
+    {
+      "path": "verification/render-missing-lockfile.json",
+      "sha256": "f2cddf872b7348aa2d4e27fe140e4ddfa40d8de1eee2c99f1383bb26383f7ebd"
     },
     {
       "path": "vite.config.js",
