@@ -1,40 +1,19 @@
 {
-  "name": "performance-coach",
-  "private": true,
-  "version": "0.1.0",
+  "name": "performance-coach-backend",
+  "version": "1.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
-    "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit",
-    "test:api": "node --test tests/roleplay-contract.test.mjs tests/backend-smoke.test.mjs",
-    "check:spec": "node scripts/check-spec.mjs",
-    "build:render": "node scripts/build-render.mjs",
-    "check:deployment": "node scripts/check-deployment.mjs",
-    "test:deployment": "node --test tests/deployment.test.mjs"
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'No build step required for backend'"
   },
   "dependencies": {
-    "@google/generative-ai": "^0.21.0",
-    "@playwright/test": "^1.63.0",
-    "date-fns": "^3.6.0",
-    "framer-motion": "^11.0.8",
-    "lucide-react": "^0.344.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "recharts": "^2.12.2",
-    "uuid": "^11.1.1"
-  },
-  "devDependencies": {
-    "@tailwindcss/vite": "^4.0.0",
-    "@types/react": "^18.2.64",
-    "@types/react-dom": "^18.2.21",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.18",
-    "postcss": "^8.4.35",
-    "tailwindcss": "^4.0.0",
-    "typescript": "^5.2.2",
-    "vite": "^6.4.3"
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "@google/generative-ai": "^0.21.0"
   }
 }
