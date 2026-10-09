@@ -1,0 +1,62 @@
+import { store } from '../store';
+import { getProviderInfo, checkBackendHealth, setLLMAvailable } from '../llm-provider';
+import { Wifi, WifiOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+export default function LLMStatus() {
+  const [info, setInfo] = useState(getProviderInfo());
+  const [checking, setChecking] = useState(true);
+
+  // Check backend health on mount to determine if we're in LIVE AI mode
+  useEffect(() => {
+    console.log('🔍 LLMStatus: Checking backend health...');
+    checkBackendHealth().then(health => {
+      console.log('🔍 LLMStatus: Backend health check result:', health);
+      if (health.available) {
+        console.log('✅ LLMStatus: Backend is available, setting LIVE mode');
+        setLLMAvailable(true, health.provider, health.model);
+        setInfo({
+          name: health.provider || 'Configured provider',
+          model: health.model || 'Unknown model',
+          isLive: true,
+        });
+      } else {
+        console.log('⚠️ LLMStatus: Backend is NOT available');
+        setLLMAvailable(false);
+        setInfo({ name: 'Unavailable', model: '', isLive: false });
+      }
+      setChecking(false);
+    }).catch((error) => {
+      console.error('❌ LLMStatus: Backend health check failed:', error);
+      setLLMAvailable(false);
+      setInfo({ name: 'Unavailable', model: '', isLive: false });
+      setChecking(false);
+    });
+  }, []);
+
+  if(store.getState().mode==='DEMO')return <span className="text-xs bg-amber-50 text-amber-800 p-2 rounded">Synthetic demo · No live AI</span>;
+  if (checking) {
+    return (
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-surface-100 text-surface-500 border border-surface-200">
+        <span className="animate-pulse">Checking...</span>
+      </div>
+    );
+  }
+
+  if (info.isLive) {
+    return (
+      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200" title={`Using ${info.name} ${info.model} — API key secured server-side`}>
+        <Wifi size={10} />
+        <span>Configured AI: {info.name}</span>
+        <span className="text-emerald-500">({info.model})</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200" title="Live AI is currently unavailable. Retry the action when the provider recovers.">
+      <WifiOff size={10} />
+      <span>AI Unavailable</span>
+    </div>
+  );
+}

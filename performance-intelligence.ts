@@ -1,0 +1,44 @@
+import { v4 as uuidv4 } from 'uuid';
+import { CapabilityHistory, CompanyContext, Interaction, IntendedBehavior, PreparationBrief, PreparationItem } from './types';
+import { scenarioContext, taxonomy, rubricLibrary } from './product-spec';
+import { semantic, object, strings, confidence } from './semantic-client';
+
+export async function extractInteractionCandidates(description: string) {
+  const data = await semantic('CONTEXT_INTAKE', 'Extract candidate fields from the employee description. Do not infer personal experience from job title. Do not invent dates. Return {"customer":"","stakeholder":"","stakeholderRole":"","interactionType":"taxonomy id","objective":"","risks":[],"focusCapability":"","experienceLevel":"Foundation|Experienced|Advanced|Executive"}. Omit unsupported fields. These are editable suggestions only.', { description, taxonomy });
+  const candidates: Record<string, string> = {};
+  for (const key of ['customer', 'stakeholder', 'stakeholderRole', 'objective']) if (typeof data[key] === 'string') candidates[key] = data[key];
+  if (taxonomy.some(m => m.id === data.interactionType)) candidates.interactionType = data.interactionType;
+  if (['Foundation','Experienced','Advanced','Executive'].includes(data.experienceLevel)) candidates.experienceLevel = data.experienceLevel;
+  if (typeof data.focusCapability === 'string' && data.focusCapability in rubricLibrary) candidates.focusCapability = data.focusCapability;
+  if (Array.isArray(data.risks)) candidates.risks = strings(data.risks).join('\n');
+  return candidates;
+}
+
+export async function buildPerformancePlan(interaction: Interaction, history: CapabilityHistory[] = [], company?: CompanyContext | null, priorLearning?: string): Promise<PreparationBrief> {
+  const context = scenarioContext(interaction);
+  const relevant = history.filter(h => context.performanceMoment.capabilities.includes(h.capability) || h.capability === context.targetCapability);
+  const evidence = relevant.flatMap(h => h.evidenceHistory || []).filter(e => e.evidenceId && e.sourceText && e.classification === 'OBSERVED');
+  const ids = new Set(evidence.map(e => e.evidenceId));
+  const risk = await semantic('CONTEXT_RISK_INTERPRETATION', 'Interpret one primary employee performance risk for this moment. With no prior evidence call it a context-based hypothesis, not a recurring weakness. A recurring pattern requires at least three independent source IDs. Return {"behavior":"","meetingImplication":"","successBehavior":"","evidenceIds":[],"confidence":0,"pattern":""}. Select only supplied evidence IDs.', { interaction, context, evidence, priorLearning, history: relevant.map(h => ({ capability:h.capability, patterns:h.patterns, nextRecommendation:h.nextRecommendation })) });
+  for (const field of ['behavior','meetingImplication','successBehavior']) if(typeof risk[field]!=='string'||!risk[field].trim()) throw new Error('Invalid risk interpretation. Please retry.');
+  const riskIds = strings(risk.evidenceIds).filter(id => ids.has(id));
+  const independent = new Set(evidence.filter(e=>riskIds.includes(e.evidenceId!)).map(e=>e.sourceId)).size;
+  const personalPerformanceRisk = { behavior: String(risk.behavior || 'Clarify the purpose before responding'), meetingImplication: String(risk.meetingImplication || 'Unclear needs can lead to irrelevant responses'), successBehavior: String(risk.successBehavior || 'Confirm the concern and intended outcome'), evidenceIds: riskIds, confidence: riskIds.length ? confidence(risk.confidence) : Math.min(0.4, confidence(risk.confidence)) };
+  const data = await semantic('PERFORMANCE_PLAN_GENERATION', `Generate a concise preparation brief and intended-behavior plan aligned with the supplied moment, rubric and complexity. Rank the BEST three questions first. Do not treat all meetings as pricing discussions. Never invent company authority. Return:
+{"objective":"","stakeholderPriorities":[],"relevantContext":[],"commercialGuidance":{"discountLimits":"","relevantPackage":"","tradeOffs":[],"escalationItems":[],"note":""},"likelyObjections":[],"recommendedQuestions":[],"recommendedPositioning":[],"thingsToAvoid":[],"personalCoachingFocus":"","practiceRecommendation":"","unknowns":[],"intendedBehaviors":[{"id":"b1","behavior":"","priority":"high","successCriterion":""}],"watchOuts":[{"behavior":"","whyItMatters":"","preferredAlternative":""}],"items":[{"text":"","classification":"KNOWN|INFERRED|UNKNOWN|RECOMMENDED","source":"exact supplied excerpt for KNOWN; otherwise source label","evidenceIds":[]}]}.
+Use 1-3 intended behaviors and at most 3 watch-outs. KNOWN items must quote supplied context exactly. Use INFERRED for possible stakeholder concerns, UNKNOWN for missing information, RECOMMENDED for advice.`, { interaction, context, risk: personalPerformanceRisk, employeeEvidence: evidence, company: company || null, priorLearning });
+  for (const field of ['objective','personalCoachingFocus','practiceRecommendation']) if (typeof data[field] !== 'string' || !data[field].trim()) throw new Error('The AI returned an incomplete performance plan. Please retry.');
+  for (const field of ['stakeholderPriorities','relevantContext','likelyObjections','recommendedQuestions','recommendedPositioning','thingsToAvoid','intendedBehaviors','watchOuts','items']) if (!Array.isArray(data[field])) throw new Error(`Performance plan is missing ${field}. Please retry.`);
+  const intendedBehaviors: IntendedBehavior[] = data.intendedBehaviors.slice(0,3).map((b: unknown, index: number) => { const v=object(b); if (typeof v.behavior !== 'string' || typeof v.successCriterion !== 'string' || !v.behavior.trim() || !v.successCriterion.trim()) throw new Error('Intended behaviors require observable success criteria.'); return { id:`${interaction.id}-behavior-${index+1}`, behavior:v.behavior, successCriterion:v.successCriterion, priority:['high','medium','low'].includes(v.priority)?v.priority:'high' }; });
+  if (!intendedBehaviors.length) throw new Error('No intended behaviors were returned. Retry preparation.');
+  const sourceStrings=(value:unknown):string[]=>typeof value==='string'?[value]:value&&typeof value==='object'?Object.values(value).flatMap(sourceStrings):[];
+  const supplied=sourceStrings({interaction,company,evidence});
+  const items: PreparationItem[] = data.items.map((raw: unknown) => { const item=object(raw); const classification = ['KNOWN','INFERRED','UNKNOWN','RECOMMENDED'].includes(item.classification) ? item.classification : 'INFERRED'; const exact = typeof item.text === 'string' && typeof item.source === 'string' && item.source.length > 3 && supplied.some(s=>s.includes(item.source)) && item.source.includes(item.text); return { text:String(item.text || ''), classification:classification==='KNOWN' && !exact?'INFERRED':classification, source:String(item.source || 'Model recommendation'), evidenceIds:strings(item.evidenceIds).filter(id=>ids.has(id)) }; }).filter((i:PreparationItem)=>i.text);
+  const guidance=object(data.commercialGuidance);
+  return { id:uuidv4(), interactionId:interaction.id, objective:data.objective, stakeholderPriorities:strings(data.stakeholderPriorities), relevantContext:strings(data.relevantContext), likelyObjections:strings(data.likelyObjections), recommendedQuestions:strings(data.recommendedQuestions), recommendedPositioning:strings(data.recommendedPositioning), thingsToAvoid:strings(data.thingsToAvoid), personalCoachingFocus:personalPerformanceRisk.successBehavior, practiceRecommendation:data.practiceRecommendation, unknowns:strings(data.unknowns), personalPerformanceRisk, intendedBehaviors, items,
+    watchOuts:data.watchOuts.slice(0,3).map((v: any)=>({behavior:String(v.behavior||''),whyItMatters:String(v.whyItMatters||''),preferredAlternative:String(v.preferredAlternative||'')})),
+    personalization:{ evidenceCount:riskIds.length, pattern:independent>=3 ? String(risk.pattern || 'Relevant independent observations') : 'No recurring pattern established', context:`${context.performanceMoment.name} with ${interaction.stakeholderRole || 'stakeholder'}`, confidence:personalPerformanceRisk.confidence },
+    whyPersonalized: riskIds.length ? `${riskIds.length} relevant observations inform this ${context.performanceMoment.name.toLowerCase()}.` : 'Context-based recommendation; not an observed personal weakness.',
+    priorLearning, sourceMode:company?'COMPANY_COACH':'GENERAL_COACH', companySource:company?'Provided company context':'No company context connected',
+    commercialGuidance:{ discountLimits:company?.discountRules || 'Not provided', relevantPackage:company?.products || 'Not provided', tradeOffs:strings(guidance.tradeOffs), escalationItems:company?.escalationRules ? [company.escalationRules] : ['Not provided'], note:company?'Only supplied policies may establish authority.':'Company authority and packages are unknown.' }, generatedAt:new Date().toISOString() };
+}

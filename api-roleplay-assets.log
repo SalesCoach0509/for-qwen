@@ -1,0 +1,12 @@
+✔ production server serves the merged release and preserves roleplay context across the provider boundary (808.3718ms)
+✔ structured state rejects malformed dialogue and prompt leakage (1.3274ms)
+✔ one repair, correct roles, deduplication and isolated session identity (0.7497ms)
+✔ invalid second output fails without a result (0.9522ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 968.3381

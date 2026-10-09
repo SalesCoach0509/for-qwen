@@ -1,0 +1,828 @@
+{
+  "version": "performance-v1.1",
+  "taxonomy": [
+    {
+      "id": "cold-outreach",
+      "category": "Prospecting",
+      "name": "Cold outreach",
+      "objective": "Earn permission for a relevant next conversation",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Premature pitching"
+      ],
+      "successCriteria": [
+        "Confirm relevance and permission"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "warm-outreach",
+      "category": "Prospecting",
+      "name": "Warm outreach",
+      "objective": "Earn permission for a relevant next conversation",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Premature pitching"
+      ],
+      "successCriteria": [
+        "Confirm relevance and permission"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "first-conversation",
+      "category": "Prospecting",
+      "name": "First conversation",
+      "objective": "Earn permission for a relevant next conversation",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Premature pitching"
+      ],
+      "successCriteria": [
+        "Confirm relevance and permission"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "initial-qualification",
+      "category": "Qualification",
+      "name": "Initial qualification",
+      "objective": "Establish fit and a credible decision path",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Assuming qualification without evidence"
+      ],
+      "successCriteria": [
+        "Confirm need, owner and next decision"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "opportunity-qualification",
+      "category": "Qualification",
+      "name": "Opportunity qualification",
+      "objective": "Establish fit and a credible decision path",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Assuming qualification without evidence"
+      ],
+      "successCriteria": [
+        "Confirm need, owner and next decision"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "needs-discovery",
+      "category": "Discovery",
+      "name": "Needs discovery",
+      "objective": "Understand needs, impact and decision criteria",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Solutioning before diagnosis"
+      ],
+      "successCriteria": [
+        "Establish a specific need and validate impact"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Technical Leader"
+      ]
+    },
+    {
+      "id": "executive-discovery",
+      "category": "Discovery",
+      "name": "Executive discovery",
+      "objective": "Understand needs, impact and decision criteria",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Solutioning before diagnosis"
+      ],
+      "successCriteria": [
+        "Establish a specific need and validate impact"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Technical Leader"
+      ]
+    },
+    {
+      "id": "technical-discovery",
+      "category": "Discovery",
+      "name": "Technical discovery",
+      "objective": "Understand needs, impact and decision criteria",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Solutioning before diagnosis"
+      ],
+      "successCriteria": [
+        "Establish a specific need and validate impact"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Technical Leader"
+      ]
+    },
+    {
+      "id": "multi-stakeholder-discovery",
+      "category": "Discovery",
+      "name": "Multi-stakeholder discovery",
+      "objective": "Understand needs, impact and decision criteria",
+      "capabilities": [
+        "Discovery",
+        "Questioning"
+      ],
+      "risks": [
+        "Solutioning before diagnosis"
+      ],
+      "successCriteria": [
+        "Establish a specific need and validate impact"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Technical Leader"
+      ]
+    },
+    {
+      "id": "solution-presentation",
+      "category": "Solution / Value",
+      "name": "Solution presentation",
+      "objective": "Connect the solution to a verified business outcome",
+      "capabilities": [
+        "Value Articulation",
+        "Questioning"
+      ],
+      "risks": [
+        "Feature dumping or invented ROI"
+      ],
+      "successCriteria": [
+        "Connect a demonstrated need to relevant value"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "product-demo",
+      "category": "Solution / Value",
+      "name": "Product demo",
+      "objective": "Connect the solution to a verified business outcome",
+      "capabilities": [
+        "Value Articulation",
+        "Questioning"
+      ],
+      "risks": [
+        "Feature dumping or invented ROI"
+      ],
+      "successCriteria": [
+        "Connect a demonstrated need to relevant value"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "business-case",
+      "category": "Solution / Value",
+      "name": "Business case",
+      "objective": "Connect the solution to a verified business outcome",
+      "capabilities": [
+        "Value Articulation",
+        "Questioning"
+      ],
+      "risks": [
+        "Feature dumping or invented ROI"
+      ],
+      "successCriteria": [
+        "Connect a demonstrated need to relevant value"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "value-articulation",
+      "category": "Solution / Value",
+      "name": "Value articulation",
+      "objective": "Connect the solution to a verified business outcome",
+      "capabilities": [
+        "Value Articulation",
+        "Questioning"
+      ],
+      "risks": [
+        "Feature dumping or invented ROI"
+      ],
+      "successCriteria": [
+        "Connect a demonstrated need to relevant value"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "pricing-discussion",
+      "category": "Commercial",
+      "name": "Pricing discussion",
+      "objective": "Diagnose concerns and preserve value within authority",
+      "capabilities": [
+        "Objection Handling",
+        "Questioning"
+      ],
+      "risks": [
+        "Premature concession"
+      ],
+      "successCriteria": [
+        "Clarify the concern and agree an authorized give-get"
+      ],
+      "stakeholders": [
+        "CFO",
+        "Procurement"
+      ]
+    },
+    {
+      "id": "objection-handling",
+      "category": "Commercial",
+      "name": "Objection handling",
+      "objective": "Diagnose concerns and preserve value within authority",
+      "capabilities": [
+        "Objection Handling",
+        "Questioning"
+      ],
+      "risks": [
+        "Premature concession"
+      ],
+      "successCriteria": [
+        "Clarify the concern and agree an authorized give-get"
+      ],
+      "stakeholders": [
+        "CFO",
+        "Procurement"
+      ]
+    },
+    {
+      "id": "negotiation",
+      "category": "Commercial",
+      "name": "Negotiation",
+      "objective": "Diagnose concerns and preserve value within authority",
+      "capabilities": [
+        "Commercial Discipline",
+        "Negotiation"
+      ],
+      "risks": [
+        "Premature concession"
+      ],
+      "successCriteria": [
+        "Clarify the concern and agree an authorized give-get"
+      ],
+      "stakeholders": [
+        "CFO",
+        "Procurement"
+      ]
+    },
+    {
+      "id": "procurement",
+      "category": "Commercial",
+      "name": "Procurement",
+      "objective": "Diagnose concerns and preserve value within authority",
+      "capabilities": [
+        "Commercial Discipline",
+        "Negotiation"
+      ],
+      "risks": [
+        "Premature concession"
+      ],
+      "successCriteria": [
+        "Clarify the concern and agree an authorized give-get"
+      ],
+      "stakeholders": [
+        "CFO",
+        "Procurement"
+      ]
+    },
+    {
+      "id": "discount-request",
+      "category": "Commercial",
+      "name": "Discount request",
+      "objective": "Diagnose concerns and preserve value within authority",
+      "capabilities": [
+        "Objection Handling",
+        "Questioning"
+      ],
+      "risks": [
+        "Premature concession"
+      ],
+      "successCriteria": [
+        "Clarify the concern and agree an authorized give-get"
+      ],
+      "stakeholders": [
+        "CFO",
+        "Procurement"
+      ]
+    },
+    {
+      "id": "executive-presentation",
+      "category": "Decision",
+      "name": "Executive presentation",
+      "objective": "Resolve decision criteria and earn an explicit commitment",
+      "capabilities": [
+        "Next-Step Control",
+        "Questioning"
+      ],
+      "risks": [
+        "Assuming agreement or inventing competitor claims"
+      ],
+      "successCriteria": [
+        "Confirm decision owner, action and timing"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "competitive-defense",
+      "category": "Decision",
+      "name": "Competitive defense",
+      "objective": "Resolve decision criteria and earn an explicit commitment",
+      "capabilities": [
+        "Next-Step Control",
+        "Questioning"
+      ],
+      "risks": [
+        "Assuming agreement or inventing competitor claims"
+      ],
+      "successCriteria": [
+        "Confirm decision owner, action and timing"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "final-decision-meeting",
+      "category": "Decision",
+      "name": "Final decision meeting",
+      "objective": "Resolve decision criteria and earn an explicit commitment",
+      "capabilities": [
+        "Next-Step Control",
+        "Questioning"
+      ],
+      "risks": [
+        "Assuming agreement or inventing competitor claims"
+      ],
+      "successCriteria": [
+        "Confirm decision owner, action and timing"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "closing",
+      "category": "Decision",
+      "name": "Closing",
+      "objective": "Resolve decision criteria and earn an explicit commitment",
+      "capabilities": [
+        "Next-Step Control",
+        "Questioning"
+      ],
+      "risks": [
+        "Assuming agreement or inventing competitor claims"
+      ],
+      "successCriteria": [
+        "Confirm decision owner, action and timing"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "onboarding",
+      "category": "Customer",
+      "name": "Onboarding",
+      "objective": "Validate outcomes, address risk and agree joint actions",
+      "capabilities": [
+        "Active Listening",
+        "Questioning"
+      ],
+      "risks": [
+        "Ignoring implementation risk"
+      ],
+      "successCriteria": [
+        "Confirm the customer concern and a credible next action"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "adoption",
+      "category": "Customer",
+      "name": "Adoption",
+      "objective": "Validate outcomes, address risk and agree joint actions",
+      "capabilities": [
+        "Active Listening",
+        "Questioning"
+      ],
+      "risks": [
+        "Ignoring implementation risk"
+      ],
+      "successCriteria": [
+        "Confirm the customer concern and a credible next action"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "qbr",
+      "category": "Customer",
+      "name": "QBR",
+      "objective": "Validate outcomes, address risk and agree joint actions",
+      "capabilities": [
+        "Active Listening",
+        "Questioning"
+      ],
+      "risks": [
+        "Ignoring implementation risk"
+      ],
+      "successCriteria": [
+        "Confirm the customer concern and a credible next action"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "escalation",
+      "category": "Customer",
+      "name": "Escalation",
+      "objective": "Validate outcomes, address risk and agree joint actions",
+      "capabilities": [
+        "Active Listening",
+        "Questioning"
+      ],
+      "risks": [
+        "Ignoring implementation risk"
+      ],
+      "successCriteria": [
+        "Confirm the customer concern and a credible next action"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "renewal",
+      "category": "Customer",
+      "name": "Renewal",
+      "objective": "Validate outcomes, address risk and agree joint actions",
+      "capabilities": [
+        "Objection Handling",
+        "Value Articulation"
+      ],
+      "risks": [
+        "Ignoring implementation risk"
+      ],
+      "successCriteria": [
+        "Confirm the customer concern and a credible next action"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    },
+    {
+      "id": "expansion",
+      "category": "Customer",
+      "name": "Expansion",
+      "objective": "Validate outcomes, address risk and agree joint actions",
+      "capabilities": [
+        "Active Listening",
+        "Questioning"
+      ],
+      "risks": [
+        "Ignoring implementation risk"
+      ],
+      "successCriteria": [
+        "Confirm the customer concern and a credible next action"
+      ],
+      "stakeholders": [
+        "Business Leader",
+        "Executive Sponsor",
+        "Operations Leader"
+      ]
+    }
+  ],
+  "profiles": {
+    "Foundation": {
+      "stakeholderSophistication": "Direct, operational",
+      "informationTransparency": "Explicit; reveal context after a relevant question",
+      "objectionAmbiguity": "One clear concern",
+      "pressure": "low",
+      "competingConcerns": 1,
+      "commercialComplexity": "Simple; no implied authority",
+      "timePressure": "Enough time to clarify",
+      "politicalComplexity": "Single stakeholder",
+      "hiddenAgenda": "No unstated agenda",
+      "competingPriorities": "One priority",
+      "consequenceOfFailure": "Recoverable misunderstanding",
+      "stakeholderAuthority": "Use supplied authority only",
+      "negotiationSophistication": "Simple tradeoffs",
+      "evaluationStandard": "Recognize concern, clarify and respond relevantly"
+    },
+    "Experienced": {
+      "stakeholderSophistication": "Pragmatic and skeptical",
+      "informationTransparency": "Partial until asked",
+      "objectionAmbiguity": "Stated concern may mask a practical risk",
+      "pressure": "medium",
+      "competingConcerns": 2,
+      "commercialComplexity": "Value versus timing",
+      "timePressure": "Moderate",
+      "politicalComplexity": "Owner and evaluator may differ",
+      "hiddenAgenda": "Simulated hypothesis, never a customer fact",
+      "competingPriorities": "Two linked priorities",
+      "consequenceOfFailure": "Delayed next step",
+      "stakeholderAuthority": "Separate recommendation from approval",
+      "negotiationSophistication": "Require a reciprocal trade",
+      "evaluationStandard": "Diagnose cause, connect value and confirm the next step"
+    },
+    "Advanced": {
+      "stakeholderSophistication": "Cross-functional and evidence seeking",
+      "informationTransparency": "Reveal selectively based on response quality",
+      "objectionAmbiguity": "Layered concerns requiring diagnosis",
+      "pressure": "high",
+      "competingConcerns": 3,
+      "commercialComplexity": "Dependencies, alternatives and authorization",
+      "timePressure": "Limited time",
+      "politicalComplexity": "Conflicting stakeholders",
+      "hiddenAgenda": "Hypothetical risk posture revealed through relevant questions",
+      "competingPriorities": "Cost, risk and operational continuity",
+      "consequenceOfFailure": "Loss of credibility",
+      "stakeholderAuthority": "Confirm decision rights",
+      "negotiationSophistication": "Conditional trades and alternatives",
+      "evaluationStandard": "Prioritize ambiguity, preserve boundaries and manage competing concerns"
+    },
+    "Executive": {
+      "stakeholderSophistication": "Strategic, board-level judgment",
+      "informationTransparency": "Sparse; distinguish unknowns from assumptions",
+      "objectionAmbiguity": "Strategic tradeoffs without a single right answer",
+      "pressure": "high",
+      "competingConcerns": 4,
+      "commercialComplexity": "Risk allocation, long-term value and governance",
+      "timePressure": "Short executive attention window",
+      "politicalComplexity": "Multiple decision owners and competing incentives",
+      "hiddenAgenda": "Hypothetical strategic concern, not invented customer information",
+      "competingPriorities": "Strategy, financial risk, accountability and time",
+      "consequenceOfFailure": "Strategic misalignment",
+      "stakeholderAuthority": "Validate governance and escalation",
+      "negotiationSophistication": "Consequence-aware options and principled boundaries",
+      "evaluationStandard": "Synthesize ambiguity, surface tradeoffs, state uncertainty and secure accountable decisions"
+    }
+  },
+  "personas": [
+    {
+      "role": "CFO",
+      "objectives": "Protect financial value and risk",
+      "priorities": "Investment case, cash and measurable outcomes",
+      "informationBehavior": "Requests assumptions and proof",
+      "decisionStyle": "Evidence-driven",
+      "pressureBehavior": "Challenges unsupported returns",
+      "commonConcerns": "Cost, risk, payback",
+      "negotiationPosture": "Conditional, authority-conscious"
+    },
+    {
+      "role": "Procurement",
+      "objectives": "Secure defensible terms",
+      "priorities": "Comparability, governance and conditions",
+      "informationBehavior": "Tests terms and missing scope",
+      "decisionStyle": "Process-oriented",
+      "pressureBehavior": "Pushes tradeoffs",
+      "commonConcerns": "Scope, price, approval",
+      "negotiationPosture": "Seeks reciprocal concessions"
+    },
+    {
+      "role": "Business Leader",
+      "objectives": "Achieve business outcomes",
+      "priorities": "Execution, growth and ownership",
+      "informationBehavior": "Shares operational needs when relevant",
+      "decisionStyle": "Outcome-oriented",
+      "pressureBehavior": "Tests implementation feasibility",
+      "commonConcerns": "Impact, disruption",
+      "negotiationPosture": "Trades for delivery certainty"
+    },
+    {
+      "role": "Technical Leader",
+      "objectives": "Protect technical fit",
+      "priorities": "Security, integration and feasibility",
+      "informationBehavior": "Asks for architecture facts",
+      "decisionStyle": "Technical evidence",
+      "pressureBehavior": "Challenges unverified claims",
+      "commonConcerns": "Access, complexity, reliability",
+      "negotiationPosture": "Seeks testable commitments"
+    },
+    {
+      "role": "Executive Sponsor",
+      "objectives": "Align strategic priorities",
+      "priorities": "Accountability, risk and enterprise outcomes",
+      "informationBehavior": "Limited time, high signal",
+      "decisionStyle": "Strategic tradeoffs",
+      "pressureBehavior": "Tests judgment and prioritization",
+      "commonConcerns": "Governance, strategic fit",
+      "negotiationPosture": "Negotiates decision boundaries"
+    },
+    {
+      "role": "Operations Leader",
+      "objectives": "Improve reliable execution",
+      "priorities": "Adoption, process and continuity",
+      "informationBehavior": "Provides practical constraints after inquiry",
+      "decisionStyle": "Pragmatic",
+      "pressureBehavior": "Tests real-world feasibility",
+      "commonConcerns": "Delays, workload, ownership",
+      "negotiationPosture": "Values achievable milestones"
+    }
+  ],
+  "rubric": {
+    "Discovery": {
+      "observable": "Explore need, impact, stakeholders and decision criteria",
+      "scale": {
+        "1": "Ignores the expressed problem and pitches despite a clear discovery opportunity",
+        "2": "Asks a broad question but does not follow the answer",
+        "3": "Clarifies a relevant need and business impact",
+        "4": "Connects need, impact, decision criteria and stakeholders through follow-up",
+        "5": "Prioritizes conflicting needs and tests assumptions under demonstrated complexity"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "Which part of the handover creates the largest delay?"
+    },
+    "Questioning": {
+      "observable": "Ask focused questions and follow the response",
+      "scale": {
+        "1": "Counterproductive observed response",
+        "2": "Partial or generic response to an available opportunity",
+        "3": "Relevant and functional response",
+        "4": "Adaptive response grounded in the underlying concern",
+        "5": "Consistent judgment across demonstrated complexity"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "What makes that the priority now?"
+    },
+    "Active Listening": {
+      "observable": "Acknowledge, clarify and accurately reflect the stated concern",
+      "scale": {
+        "1": "Misstates or dismisses the expressed concern",
+        "2": "Acknowledges superficially without checking meaning",
+        "3": "Clarifies and accurately reflects the concern",
+        "4": "Tests an ambiguous interpretation and adapts to the answer",
+        "5": "Reconciles competing stakeholder meanings with precise confirmation"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "It sounds like delivery certainty matters more than price. Have I understood correctly?"
+    },
+    "Value Articulation": {
+      "observable": "Link verified need to relevant value without inventing ROI",
+      "scale": {
+        "1": "Invents outcomes or unrelated claims",
+        "2": "Lists generic benefits without linking to the stated need",
+        "3": "Connects a supported benefit to an expressed need",
+        "4": "Tests relevance and addresses a tradeoff using verified facts",
+        "5": "Prioritizes stakeholder-specific value under conflicting constraints without overstating proof"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "You identified handover delays; let us check whether this workflow addresses that need."
+    },
+    "Objection Handling": {
+      "observable": "Recognize, clarify, acknowledge, respond and advance while preserving value",
+      "scale": {
+        "1": "Counterproductive observed response",
+        "2": "Partial or generic response to an available opportunity",
+        "3": "Relevant and functional response",
+        "4": "Adaptive response grounded in the underlying concern",
+        "5": "Consistent judgment across demonstrated complexity"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "What is the underlying concern about the implementation timeline?",
+      "dimensions": {
+        "Recognition": "Identifies the actual stated objection rather than assuming price",
+        "Clarification": "Asks and follows a diagnostic question before proposing a response",
+        "Acknowledgement": "Accurately acknowledges the concern without conceding unsupported claims",
+        "Response Relevance": "Responds to the diagnosed concern using supplied facts",
+        "Value Preservation": "Connects verified outcomes to the response without inventing ROI",
+        "Commercial Discipline": "Respects supplied authority and makes reciprocal, authorized trades only",
+        "Conversational Control": "Keeps a constructive thread while allowing the stakeholder to respond",
+        "Advancement": "Secures an appropriate next step with owner and date when opportunity exists"
+      }
+    },
+    "Negotiation": {
+      "observable": "Explore interests, options and reciprocal authorized trades",
+      "scale": {
+        "1": "Concedes without authority or exchange",
+        "2": "Discusses position without exploring interests",
+        "3": "Explores an interest and proposes a reciprocal option",
+        "4": "Tests alternatives and boundaries before making an authorized trade",
+        "5": "Finds a defensible agreement across conflicting constraints and stakeholders"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "If we change the scope, what can you commit to in return?"
+    },
+    "Commercial Discipline": {
+      "observable": "Respect authority, policies and escalation boundaries",
+      "scale": {
+        "1": "Invents authority or commits beyond stated limits",
+        "2": "Recognizes a limit but leaves an ambiguous commitment",
+        "3": "States limits and confirms an approval path",
+        "4": "Preserves value through a conditional, reciprocal trade",
+        "5": "Maintains governance and relationship under layered commercial pressure"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "I cannot authorize that concession; I will confirm the approval path."
+    },
+    "Next-Step Control": {
+      "observable": "Agree a specific action, owner and time",
+      "scale": {
+        "1": "Ends despite an available opportunity with no next action",
+        "2": "Suggests vague follow-up",
+        "3": "Agrees a specific action and owner",
+        "4": "Confirms action, owner, date and purpose",
+        "5": "Resolves dependencies and secures an achievable mutual commitment under complexity"
+      },
+      "notObserved": "No relevant opportunity or no grounded employee evidence; never score zero as a measured level.",
+      "confidence": "Low: one narrow observation; medium: several direct observations; high: consistent independent contexts with a successful grounding judge.",
+      "evidenceExample": "Can Alex own the delivery review and send the findings by Friday?"
+    }
+  }
+}

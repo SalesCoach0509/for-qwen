@@ -1,0 +1,15 @@
+{
+ "CONTEXT_INTAKE":{"required":{},"input":["description","taxonomy"]},
+ "CONTEXT_RISK_INTERPRETATION":{"required":{"behavior":"string","meetingImplication":"string","successBehavior":"string","evidenceIds":"array","confidence":"number"},"input":["interaction","context","evidence"]},
+ "PERFORMANCE_PLAN_GENERATION":{"required":{"objective":"string","personalCoachingFocus":"string","practiceRecommendation":"string","intendedBehaviors":"array","items":"array","watchOuts":"array","recommendedQuestions":"array","commercialGuidance":"object"},"input":["interaction","context","risk"]},
+ "SCENARIO_PLAN_GENERATION":{"required":{"scenarioTitle":"string","stakeholderRole":"string","personality":"string","pressureLevel":"string","objectives":"array","likelyObjections":"array","commercialConstraints":"string","hiddenPriorities":"array","desiredOutcome":"string","knownFacts":"array","unknowns":"array","objectionLadder":"array","triggerConditions":"array","requiredBehaviors":"array","forbiddenMoves":"array"},"input":[]},
+ "PRACTICE_EVIDENCE_EXTRACTION":{"required":{"evidence":"array"},"input":["turns"]},
+ "CAPABILITY_EVALUATION":{"required":{"confidence":"number","dimensions":"object"},"input":["evidence","context","rubric"]},
+ "ASSESSMENT_JUDGE":{"required":{"approvedEvidenceIds":"array","approvedDimensions":"array","approvedRowIndices":"array","scoreSupported":"boolean","confidence":"number","reason":"string"},"input":["evidence","proposed","context"]},
+ "PRACTICE_INTERVENTION_GENERATION":{"required":{"recommendation":"string","successCriterion":"string"},"input":["score","config"]},
+ "TRANSCRIPT_FACT_EXTRACTION":{"required":{"facts":"array"},"input":["lines"]},
+ "BEHAVIOR_EXTRACTION":{"required":{"behaviors":"array"},"input":["facts","context"]},
+ "PLAN_VS_ACTUAL":{"required":{"rows":"array"},"input":["intendedBehaviors","facts","behaviors"]},
+ "INTERVENTION_GENERATION":{"required":{"title":"string","targetBehavior":"string","whyItMatters":"string","exercise":"string","difficulty":"string","successCriterion":"string","evidenceIds":"array"},"input":["diagnosis","context"]},
+ "CAPABILITY_UPDATE_JUDGE":{"required":{"decision":"string","reason":"string","confidence":"number","patterns":"array","patternSourceIds":"array","interventionOutcome":"string"},"input":["prior","newAssessment","evidence","sourceIds"]}
+}

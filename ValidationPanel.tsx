@@ -1,0 +1,6 @@
+import { useState, useEffect, useRef } from 'react';
+import { initialGates, runValidation } from '../validation-service';
+export default function ValidationPanel({onBack}:{onBack:()=>void}){
+ const [gates,setGates]=useState(initialGates),[running,setRunning]=useState(false);const active=useRef(true);useEffect(()=>()=>{active.current=false;},[]);
+ return <main className="max-w-4xl mx-auto p-6"><button onClick={onBack}>← Home</button><h1 className="text-2xl font-bold mt-4">MVP Validation</h1><p className="my-4">Runs real requests through the configured production gateway. Results are runtime observations, separate from automated fixture tests. Validation cases do not enter employee performance memory.</p><button disabled={running} className="px-5 py-3 rounded-lg bg-blue-600 text-white disabled:opacity-50" onClick={async()=>{setRunning(true);setGates(initialGates());try{await runValidation(g=>{if(active.current)setGates(g);});}finally{if(active.current)setRunning(false);}}}>{running?'Running validation…':'Run Validation Suite'}</button><ol className="space-y-3 mt-6">{gates.map((g,i)=><li key={g.name} className="border rounded-xl p-4 bg-white"><h2 className="font-semibold">Gate {i+1}: {g.name} — <span>{g.status}</span></h2><p className="text-sm mt-2">{g.detail}</p></li>)}</ol></main>;
+}

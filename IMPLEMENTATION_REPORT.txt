@@ -1,0 +1,156 @@
+AI PERFORMANCE COACH — CONSOLIDATED IMPLEMENTATION REPORT
+Verified locally: 9 October 2026 (Asia/Calcutta)
+Release marker: performance-v1-consolidated-20261007
+
+PRODUCT IMPLEMENTATION SUMMARY
+Implemented the continuous interaction → preparation → practice → real transcript → evidence → diagnosis → intervention → next adapted plan loop in the supplied existing application. Preserved its React/Vite frontend, custom scenario editor, Express backend and configurable universal provider gateway. This report distinguishes local fixture/contract verification from external-provider quality and deployed behavior.
+
+FILES CREATED
+Compared with the saved pre-directive source snapshot, using the supplied ZIP for files outside that snapshot:
+  - backend/package-lock.json
+  - backend/roleplay-contract.js
+  - docs/AI_OPERATION_CATALOG.md
+  - docs/CAPABILITY_RUBRIC_LIBRARY.md
+  - docs/EVIDENCE_MODEL.md
+  - docs/MVP_ACCEPTANCE_CRITERIA.md
+  - docs/PERFORMANCE_MOMENT_TAXONOMY.md
+  - docs/PRODUCT_POSITIONING.md
+  - docs/PRODUCT_WORKFLOW.md
+  - docs/SCENARIO_ENGINE_SPEC.md
+  - docs/STAKEHOLDER_PERSONA_LIBRARY.md
+  - scripts/check-spec.mjs
+  - shared/operation-contracts.json
+  - shared/product-spec.json
+  - src/analysis-pipeline.ts
+  - src/assessment-service.ts
+  - src/components/CompanyContextEditor.tsx
+  - src/components/ErrorBoundary.tsx
+  - src/components/PlanContent.tsx
+  - src/components/SmartIntake.tsx
+  - src/demo-provider.ts
+  - src/demo-seed.ts
+  - src/performance-intelligence.ts
+  - src/product-spec.ts
+  - src/semantic-client.ts
+  - src/validation-service.ts
+  - tests/e2e/consolidated-fixture.ts
+  - tests/e2e/consolidated.spec.ts
+  - tests/e2e/integrity.spec.ts
+  - tests/e2e/responsive.spec.ts
+  - tests/roleplay-contract.test.mjs
+
+FILES CHANGED
+  - .dockerignore
+  - .env.example
+  - Dockerfile
+  - README.md
+  - backend/ai-gateway/provider-adapters.js
+  - backend/server.js
+  - package-lock.json
+  - package.json
+  - public/release.json
+  - src/App.tsx
+  - src/ai-service.ts
+  - src/capability-memory.ts
+  - src/components/CapabilityProgress.tsx
+  - src/components/CreateInteraction.tsx
+  - src/components/Dashboard.tsx
+  - src/components/InteractionContextBar.tsx
+  - src/components/LLMStatus.tsx
+  - src/components/PerformanceBrief.tsx
+  - src/components/PostInteraction.tsx
+  - src/components/PracticeResults.tsx
+  - src/components/Roleplay.tsx
+  - src/components/ScenarioPlanner.tsx
+  - src/components/UploadTranscript.tsx
+  - src/components/ValidationPanel.tsx
+  - src/llm-provider.ts
+  - src/main.tsx
+  - src/performance-moment.ts
+  - src/store.ts
+  - src/test/validation-harness.ts
+  - src/transcript-analyzer.ts
+  - src/types.ts
+  - tests/backend-smoke.test.mjs
+  - tests/e2e/README.md
+  - vite.config.js
+
+FILES REMOVED
+Retired active-source rule-based/obsolete analysis modules and replaced outdated regression fixtures; omitted legacy tests from the delivery. Original inputs and the pre-directive backup remain intact in the task workspace.
+  - src/components/Roadmap.tsx
+  - src/data/before-after-demo.ts
+  - src/data/synthetic-employees.ts
+  - src/evidence-grounding.ts
+  - src/judge.ts
+  - src/objection-rubric.ts
+  - src/semantic-analysis.ts
+  - tests/e2e/mock-provider.ts
+  - tests/e2e/performance-loop.spec.ts
+  - tests/e2e/scenario-merge.spec.ts
+  - tests/legacy/live-ai.spec.ts
+
+ARCHITECTURE CHANGES
+Interaction owns artifact IDs and validated lifecycle transitions. Mode-specific local stores and local employee profiles partition state. Structured roleplay carries state and session/interaction identity. Semantic operation contracts are shared between frontend and backend. Response schema selection uses the operation name rather than searching user/context text. Evidence extraction precedes assessment, then a grounding judge and one intervention. Memory updates require their own judge and deduplicate independent sources. Historical evidence is appended rather than overwritten. Backend provider configuration, adapters, retries and real-provider fallback are preserved.
+
+UX CHANGES
+Added 28 performance moments, four complexity profiles, independent stakeholder seniority and reviewed natural-language intake. The plan hierarchy is objective, one risk, strategy, three main questions, up to three watch-outs and practice. Provenance and company guidance expand below; unknown commercial authority stays explicit. Context bars show customer, interaction, stakeholder, date, stage and capability. Practice results use qualitative readiness and expandable evidence/dimensions. Plan vs Actual includes intended/actual sources and preparation effectiveness. The next moment receives prior learning. Explicit Demo Mode has a banner, separate storage and one synthetic renewal seed. Added recovery boundaries and optional local company-context entry.
+
+AI OPERATION CHANGES
+13 documented semantic operations plus structured stakeholder response and provider diagnostic. Preparation uses two specialized calls. Practice has one call per turn and at most one invalid-output repair. Assessment uses extraction, rubric evaluation, grounding judge and conditional intervention. Transcript analysis separates facts, behavior, comparison, assessment/judge and coaching. No failed live request falls back to demo. No incomplete or failed practice produces an assessment. No arbitrary readiness percentage is computed.
+
+NEW DOCUMENTATION
+All nine requested source-of-truth documents are in docs/. Runtime definitions are in shared/product-spec.json and shared/operation-contracts.json. The specification-alignment check passed. README.md contains exact install, test and Railway deployment steps.
+
+TESTS EXECUTED
+1. Clean npm ci --ignore-scripts using the frontend lockfile.
+2. Clean backend npm ci --omit=dev --ignore-scripts using the backend lockfile.
+3. npm audit for frontend and backend production dependencies.
+4. Strict TypeScript check.
+5. Production Vite build (6.4.4).
+6. Machine-readable specification/document alignment.
+7. Four Node tests for production API/static assets, roleplay schemas, one repair, prompt-leakage rejection and failure behavior.
+8. Twenty-one Chromium browser regression tests for the complete live-contract journey, reviewed intake, demo loop, provider failures, malformed output, grounded quotes/speakers, source-idempotent memory, judge failure, late responses, invalid lifecycle/artifact identity, custom scenarios, legacy migration, weak readiness, wrong session, validation and local profiles.
+9. One additional desktop/mobile plan layout and screenshot test after the context-bar cleanup.
+10. Archive extraction and SHA-256 verification (performed by the packaging script; see ARCHIVE_VERIFICATION.txt alongside this archive).
+
+TEST RESULTS
+PASS: clean installs, both dependency audits (zero reported vulnerabilities), TypeScript, production build, specification alignment, 4 Node tests and 22 browser tests across the full and final layout runs. The final context-bar edit/removal of unused modules was recompiled and rebuilt, with the responsive regression rerun. No TypeScript suppression was added to bypass the earlier missing-export errors.
+
+Dependency fixes: Vite updated to the compatible 6.4.x line; UUID updated to 11.1.1; patched source-map-js locked; unused unconfigured ESLint dependency chain removed. Both deployment lockfiles are included. The Dockerfile now uses npm ci for both stages and copies shared operation contracts into the runtime image.
+
+KNOWN LIMITATIONS
+- The local tests use an explicit fixture gateway. They verify application contracts, orchestration and failure handling, not the real model's semantic accuracy.
+- Real-provider inference, rubric calibration, dynamism, prompt robustness and intervention usefulness still need deployed runtime validation.
+- Local profiles are browser-state partitions, not secure authentication, server persistence, team tenancy or cross-device synchronization. Protect the backend with deployment access controls before an external rollout.
+- A production bundle-size warning remains (main bundle approximately 776 KB uncompressed). It does not prevent the build or tested flows.
+- Docker was not run because no engine was available. The Docker build's npm install/build steps were exercised locally from clean lockfiles; container execution itself remains unverified.
+- No Railway deployment was performed. Existing deployed pages will not change until this full source is committed/deployed.
+- Passing these bounded checks does not establish that software or model output is 100% bug-free.
+
+LIVE RUNTIME ITEMS STILL REQUIRING DEPLOYMENT VALIDATION
+1. Deploy the contents of AI_Performance_Coach_Consolidated_V1 to the source branch used by Railway, preserving existing LLM_PROVIDER/LLM_MODEL/LLM_API_KEY settings.
+2. Confirm /release.json and /api/health show performance-v1-consolidated-20261007.
+3. Run MVP Validation in Live Mode using actual provider credentials. Gate 1 is BLOCKED and dependent gates NOT RUN during provider outage.
+4. Complete prepare → practice → evaluate → paste/upload transcript → Plan vs Actual → targeted intervention → next adapted plan with the real configured model.
+5. Verify deployment authentication/access policy, API availability/timeouts, static MIME types, mobile display and configuration secrecy.
+
+ACCEPTANCE TABLE — LOCAL VERIFICATION ONLY
+| Area | PASS/FAIL | Evidence |
+|---|---|---|
+| Dashboard | PASS | Next-moment journey and local-profile regression |
+| Create Interaction | PASS | 28 subtypes; reviewed candidate replacement; independent complexity/seniority |
+| Performance Plan | PASS | Intended behaviors, provenance downgrade, unknown policy, desktop/mobile screenshots |
+| Practice | PASS | Unique identity, completion reason, late-response and wrong-session rejection |
+| Practice Evaluation | PASS | Evidence-before-score, NOT OBSERVED dimensions, weak-score and failure tests |
+| Transcript | PASS | Exact quote/speaker validation and linked source IDs |
+| Plan vs Actual | PASS | Saved intended IDs and cited actuals; forged claims abstain |
+| Capability Diagnosis | PASS | Grounding judge; observed evidence required |
+| Coaching | PASS | One intervention and next-plan learning propagation |
+| Capability Memory | PASS | Immutable prior state, duplicate-source rejection, NO_CHANGE on judge failure |
+| Validation | PASS | Five gates on explicit test gateway; outage BLOCKED and downstream NOT RUN |
+| Demo | PASS | Synthetic full loop with no semantic backend requests |
+| Live/Demo separation | PASS | Live storage unchanged after demo journey |
+| Session isolation | PASS | Wrong session, stale response, stale transcript and local-profile tests |
+| Error handling | PASS | Provider failures and malformed output retain recoverable states |
+| Static assets | PASS | Production Express MIME/404 checks and HTML asset references |
+| Deployment | NOT RUN | No Railway deploy credentials or Docker engine available |

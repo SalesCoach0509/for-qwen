@@ -21,13 +21,14 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy backend package files
-COPY backend/package.json ./backend/
+COPY backend/package*.json ./backend/
 
 # Install backend dependencies (npm install generates package-lock.json)
-RUN cd backend && npm install --only=production
+RUN cd backend && npm ci --omit=dev
 
 # Copy all backend source files including ai-gateway (excluding node_modules via .dockerignore)
 COPY backend/ ./backend/
+COPY shared/ ./shared/
 
 # Copy the built frontend from the build stage
 COPY --from=frontend-build /app/dist ./dist
