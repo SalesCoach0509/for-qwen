@@ -1,15 +1,20 @@
+import fs from 'node:fs';
+import { verifyProductionFiles } from './deployment-files.js';
+import { simulateStakeholder, validateRoleplayRequest } from './roleplay-contract.js';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initializeGatewayFromEnv, getAIGateway, ModelCapabilities } from './ai-gateway/index.js';
+import { initializeGatewayFromEnv, getAIGateway } from './ai-gateway/index.js';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const contracts=JSON.parse(fs.readFileSync(new URL('./contracts/operation-contracts.json',import.meta.url),'utf8'));
+const productionRelease = process.env.NODE_ENV === 'production' ? verifyProductionFiles(path.resolve(__dirname, '..')) : null;
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -32,8 +37,8 @@ try {
   console.log(`   Model: ${info.model}`);
   console.log(`   Capabilities: ${info.capabilities.join(', ')}`);
 } catch (error) {
-  gatewayInitializationError = error.message;
-  console.error('❌ Failed to initialize AI Gateway:', error.message);
+  gatewayInitializationError = 'Provider configuration is incomplete or invalid.';
+  console.error('AI operation failed; see sanitized API status.');
   console.error('');
   console.error('Required environment variables:');
   console.error('  - LLM_PROVIDER (gemini, openai, nvidia-nim, qwen, deepseek)');
@@ -52,13 +57,16 @@ try {
   aiGateway = getAIGateway();
 }
 
+// App readiness is independent of external provider availability.
+app.get('/api/ready', (req, res) => res.json({status:'ok',release:productionRelease?.release || 'development'}));
+
 // Health check
 app.get('/api/health', (req, res) => {
   console.log('🔍 Health check endpoint called');
   const gatewayInfo = aiGateway.getInfo();
   console.log('🔍 Gateway info:', gatewayInfo);
   res.json({ 
-    release: 'performance-v1-merged-20261005',
+    release: productionRelease?.release || 'development',
     status: gatewayInfo.initialized ? 'ok' : 'degraded', 
     provider: gatewayInfo.provider,
     model: gatewayInfo.model,
@@ -92,7 +100,7 @@ function recordProviderFailure(error) {
     : 'ERROR';
   lastProviderCallStatus = lastProviderStatus === 'TEMPORARILY_UNAVAILABLE' ? 'UNAVAILABLE' : 'ERROR';
   lastProviderCallTimestamp = new Date().toISOString();
-  return message;
+  return lastProviderStatus==='TEMPORARILY_UNAVAILABLE'?'Provider temporarily unavailable. Retry later.':'Provider request failed. Check server configuration.';
 }
 
 function withTimeout(operation, timeoutMs, label) {
@@ -150,93 +158,6 @@ app.post('/api/diagnostic/llm-test', async (req, res) => {
   }
 });
 
-// Helper function to validate and clean roleplay responses
-function validateAndCleanRoleplayResponse(text, stakeholderRole) {
-  // Remove common prompt leakage patterns
-  const leakagePatterns = [
-    /Check Rules & Constraints:.*?(?=\n\n|$)/gi,
-    /Rules & Constraints:.*?(?=\n\n|$)/gi,
-    /Internal (Note|Instruction|Reasoning):.*?(?=\n\n|$)/gi,
-    /As (an? )?(AI|assistant|language model).*?(?=\n\n|$)/gi,
-    /I (need to|should|must) (respond|say|do).*?(?=\n\n|$)/gi,
-    /Evaluation criteria:.*?(?=\n\n|$)/gi,
-    /Scoring rubric:.*?(?=\n\n|$)/gi,
-    /Behavioral indicators:.*?(?=\n\n|$)/gi,
-    /\[System:.*?\]/gi,
-    /\[Internal:.*?\]/gi,
-    /<thinking>.*?<\/thinking>/gi,
-    /<reasoning>.*?<\/reasoning>/gi,
-  ];
-  
-  let cleaned = text;
-  for (const pattern of leakagePatterns) {
-    cleaned = cleaned.replace(pattern, '');
-  }
-  
-  // Remove any meta-commentary about being an AI or following rules
-  cleaned = cleaned.replace(/Remember,? I('m| am) (playing|acting|roleplaying).*?(?=\n\n|$)/gi, '');
-  cleaned = cleaned.replace(/I('m| am) (staying|remaining) in (character|role).*?(?=\n\n|$)/gi, '');
-  
-  // Trim whitespace
-  cleaned = cleaned.trim();
-  
-  // If cleaning removed too much, return original with warning
-  if (cleaned.length < text.length * 0.5) {
-    console.warn('⚠️ Response cleaning removed significant content');
-    return text; // Return original if cleaning was too aggressive
-  }
-  
-  return cleaned;
-}
-
-// Helper function to determine conversation state
-function determineConversationState(history, lastResponse, lastUserMessage) {
-  // Simple state machine based on conversation patterns
-  const turnCount = history?.length || 0;
-  
-  // Check for resolution indicators
-  const resolutionIndicators = [
-    /next (step|meeting|call)/i,
-    /follow (up|through)/i,
-    /schedule/i,
-    /send (you|me)/i,
-    /look forward/i,
-    /thanks for (your )?time/i,
-  ];
-  
-  const hasResolution = resolutionIndicators.some(pattern => 
-    pattern.test(lastResponse) || pattern.test(lastUserMessage)
-  );
-  
-  // Check for escalation indicators
-  const escalationIndicators = [
-    /need to (check|verify|confirm)/i,
-    /let me (get back|follow up)/i,
-    /not sure/i,
-    /need to think/i,
-    /unacceptable/i,
-    /disappointed/i,
-  ];
-  
-  const hasEscalation = escalationIndicators.some(pattern => 
-    pattern.test(lastResponse)
-  );
-  
-  // Determine state
-  if (turnCount === 0) {
-    return 'OPENING';
-  } else if (hasResolution) {
-    return 'RESOLVING';
-  } else if (hasEscalation) {
-    return 'ESCALATING';
-  } else if (turnCount > 10) {
-    return 'ADVANCED';
-  } else {
-    return 'IN_PROGRESS';
-  }
-}
-
-// Diagnostic endpoint - helps debug configuration issues
 app.get('/api/diagnostic', (req, res) => {
   const gatewayInfo = aiGateway.getInfo();
   
@@ -266,7 +187,6 @@ app.get('/api/diagnostic', (req, res) => {
       LLM_PROVIDER: process.env.LLM_PROVIDER || 'gemini',
       LLM_MODEL: process.env.LLM_MODEL || process.env.GEMINI_MODEL || 'gemini-3.6-flash',
       LLM_API_KEY_set: !!(process.env.LLM_API_KEY || process.env.GEMINI_API_KEY),
-      LLM_API_KEY_length: (process.env.LLM_API_KEY || process.env.GEMINI_API_KEY)?.length || 0,
     },
     gateway: {
       initialized: gatewayInfo.initialized,
@@ -328,23 +248,6 @@ function parseJsonObject(text) {
   }
 }
 
-function getRequiredStructuredFields(messages) {
-  const prompt = messages.map(message => message.content || '').join('\n');
-  if (prompt.includes('"scenarioTitle"') && prompt.includes('"objectionLadder"')) {
-    return ['scenarioTitle', 'stakeholderRole', 'personality', 'pressureLevel', 'objectives', 'likelyObjections', 'commercialConstraints', 'hiddenPriorities', 'desiredOutcome', 'knownFacts', 'unknowns', 'objectionLadder', 'triggerConditions', 'requiredBehaviors', 'forbiddenMoves'];
-  }
-  if (prompt.includes('"commercialGuidance"') && prompt.includes('"stakeholderPriorities"')) {
-    return ['objective', 'stakeholderPriorities', 'relevantContext', 'commercialGuidance', 'likelyObjections', 'recommendedQuestions', 'recommendedPositioning', 'thingsToAvoid', 'personalCoachingFocus', 'practiceRecommendation'];
-  }
-  if (prompt.includes('"objectionHandlingScore"') && prompt.includes('"overallReadiness"')) {
-    return ['objectionHandlingScore', 'objectionHandlingLevel', 'evidence', 'strength', 'weakness', 'recommendedIntervention', 'overallReadiness', 'otherCapabilities'];
-  }
-  if (prompt.includes('"planVsActual"') && prompt.includes('"nextIntervention"')) {
-    return ['planVsActual', 'strengths', 'missedOpportunities', 'objectionHandlingScore', 'objectionHandlingEvidence', 'repeatedPatterns', 'likelyImpact', 'nextIntervention'];
-  }
-  return [];
-}
-
 function hasRequiredStructuredFields(value, requiredFields) {
   return value !== null
     && typeof value === 'object'
@@ -352,9 +255,8 @@ function hasRequiredStructuredFields(value, requiredFields) {
     && requiredFields.every(field => Object.prototype.hasOwnProperty.call(value, field));
 }
 
-async function ensureStructuredJson(messages, result, maxTokens) {
+async function ensureStructuredJson(messages, result, maxTokens, requiredFields) {
   const parsed = parseJsonObject(result.content);
-  const requiredFields = getRequiredStructuredFields(messages);
   if (parsed !== null && hasRequiredStructuredFields(parsed, requiredFields)) {
     return { content: JSON.stringify(parsed), usage: result.usage };
   }
@@ -386,7 +288,7 @@ app.post('/api/ai/chat', async (req, res) => {
     
     console.log('📥 Received chat request with', messages?.length || 0, 'messages');
     
-    if (!messages || !Array.isArray(messages)) {
+    if (!Array.isArray(messages) || messages.length === 0 || messages.length > 80 || messages.some(m => !m || !['system','user','assistant'].includes(m.role) || typeof m.content !== 'string' || m.content.length > 300000) || (options && (typeof options !== 'object' || (options.maxTokens != null && (!Number.isInteger(options.maxTokens) || options.maxTokens < 1 || options.maxTokens > 12000))))) {
       console.error('❌ Invalid messages format');
       return res.status(400).json({ 
         error: 'LIVE_AI_ERROR',
@@ -395,7 +297,12 @@ app.post('/api/ai/chat', async (req, res) => {
       });
     }
 
-    console.log('🤖 Calling AI Gateway...');
+    if (options?.temperature != null && (typeof options.temperature!=='number'||!Number.isFinite(options.temperature)||options.temperature<0||options.temperature>2)) return res.status(400).json({error:'INVALID_OPTIONS'});
+    const contract=Object.prototype.hasOwnProperty.call(contracts,options?.operation)?contracts[options.operation]:null;
+    if(!contract||options?.jsonMode!==true)return res.status(400).json({error:'INVALID_OPERATION',message:'A documented semantic operation and JSON mode are required.'});
+    if(contract.input.length){let input;try{input=JSON.parse(messages[messages.length-1].content);}catch{return res.status(400).json({error:'INVALID_INPUT'});}
+      if(!input||typeof input!=='object'||contract.input.some(k=>!(k in input)))return res.status(400).json({error:'INVALID_INPUT'});}
+    console.log('Calling AI Gateway');
     const jsonMode = options?.jsonMode ?? false;
     const maxTokens = options?.maxTokens ?? (jsonMode ? 4096 : 2000);
     let result = await aiGateway.generate(messages, {
@@ -405,7 +312,12 @@ app.post('/api/ai/chat', async (req, res) => {
     });
 
     if (jsonMode) {
-      result = await ensureStructuredJson(messages, result, maxTokens);
+      result = await ensureStructuredJson(messages, result, maxTokens, Object.keys(contract.required));
+      const parsed=JSON.parse(result.content);
+      for(const [key,type] of Object.entries(contract.required)){
+        const v=parsed[key];
+        if(type==='array'?!Array.isArray(v):type==='object'?(!v||typeof v!=='object'||Array.isArray(v)):typeof v!==type){const e=new Error('Invalid operation schema');e.name='InvalidStructuredOutputError';throw e;}
+      }
     }
 
     // Track successful provider call
@@ -429,9 +341,9 @@ app.post('/api/ai/chat', async (req, res) => {
       usage: result.usage,
     });
   } catch (error) {
-    console.error('❌ Chat error:', error);
-    console.error('❌ Error details:', error.message);
-    console.error('❌ Error stack:', error.stack);
+    console.error('AI operation failed; see sanitized API status.');
+    console.error('AI operation failed; see sanitized API status.');
+    console.error('AI operation failed; see sanitized API status.');
     
     // Track provider failure
     const errorMessage = error.message || '';
@@ -450,368 +362,25 @@ app.post('/api/ai/chat', async (req, res) => {
     // Ensure error is properly serialized
     const errorResponse = {
       error: 'LIVE_AI_ERROR',
-      message: error.message || 'Unknown error occurred',
-      details: error.message || 'Unknown error occurred',
+      message: 'The live AI operation failed. Retry or check provider configuration.',
+      details: 'No synthetic result was generated.',
       name: error.name || 'Error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      stack: undefined
     };
     
-    console.error('❌ Returning error response:', JSON.stringify(errorResponse));
+    console.error('AI operation failed; see sanitized API status.');
     
     res.status(error.name === 'InvalidStructuredOutputError' ? 502 : 500).json(errorResponse);
   }
 });
 
-// Prepare brief
-app.post('/api/ai/prepare', async (req, res) => {
-  try {
-    const { interaction } = req.body;
-    
-    const prompt = `You are an AI performance coach for enterprise sales. Generate a concise preparation brief.
+// Retired monolithic endpoints cannot bypass evidence-first operations.
+for(const endpoint of ['prepare','evaluate','analyze'])app.post('/api/ai/'+endpoint,(req,res)=>res.status(410).json({error:'OPERATION_REPLACED',message:'Use the documented specialized chat operations.'}));
 
-CRITICAL: Never invent pricing, discounts, or policies. If unknown, state "Not provided."
-
-Output JSON:
-{
-  "objective": "What success looks like",
-  "stakeholderPriorities": ["priority1"],
-  "relevantContext": ["context1"],
-  "commercialGuidance": {"discountLimits": "string", "relevantPackage": "string", "tradeOffs": [], "escalationItems": [], "note": "string"},
-  "likelyObjections": ["objection1"],
-  "recommendedQuestions": ["question1"],
-  "recommendedPositioning": ["positioning1"],
-  "thingsToAvoid": ["avoid1"],
-  "personalCoachingFocus": "coaching text",
-  "practiceRecommendation": "practice text"
-}
-
-Interaction: ${interaction.name} with ${interaction.customer}
-Role: ${interaction.role}, Date: ${interaction.dateTime}
-Objective: ${interaction.objective}
-Agenda: ${interaction.agenda}
-Notes: ${interaction.notes || 'None'}
-Context: ${interaction.additionalContext || 'None'}
-Employee: Objection Handling 2.7/5, Commercial Discipline 2.6/5, Discovery 2.8/5`;
-
-    const result = await aiGateway.generate([
-      { role: 'system', content: 'You are an AI performance coach for enterprise sales.' },
-      { role: 'user', content: prompt }
-    ], { jsonMode: true });
-
-    // Track successful provider call
-    lastProviderStatus = 'READY';
-    lastProviderCallStatus = 'SUCCESS';
-    lastProviderCallTimestamp = new Date().toISOString();
-
-    // Check for capability error
-    if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
-      return res.status(400).json({
-        error: 'MODEL_CAPABILITY_UNSUPPORTED',
-        message: result.message,
-        missingCapabilities: result.missingCapabilities,
-      });
-    }
-    
-    res.json(JSON.parse(result.content));
-  } catch (error) {
-    console.error('Prepare error:', error);
-    console.error('Prepare error details:', error.message);
-    console.error('Prepare error stack:', error.stack);
-    
-    // Track provider failure
-    const errorMessage = error.message || '';
-    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '503';
-    } else if (errorMessage.includes('429')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '429';
-    } else {
-      lastProviderStatus = 'ERROR';
-      lastProviderCallStatus = 'ERROR';
-    }
-    lastProviderCallTimestamp = new Date().toISOString();
-    
-    // Ensure error is properly serialized
-    const errorResponse = {
-      error: 'LIVE_AI_ERROR',
-      message: error.message || 'Failed to generate brief with AI Gateway',
-      details: error.message || 'Unknown error occurred',
-      name: error.name || 'Error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    };
-    
-    console.error('Returning error response:', JSON.stringify(errorResponse));
-    
-    res.status(500).json(errorResponse);
-  }
-});
-
-// Evaluate practice
-app.post('/api/ai/evaluate', async (req, res) => {
-  try {
-    const { turns, config } = req.body;
-    
-    const conversation = turns.map(t => 
-      `${t.role === 'ai' ? config.stakeholderRole : 'Employee'}: ${t.content}`
-    ).join('\n');
-    
-    const prompt = `Evaluate objection handling using this rubric:
-Level 1 (Novice): Reacts poorly, argues, discounts unnecessarily
-Level 2 (Developing): Acknowledges but generic/weak response
-Level 3 (Functional): Clarifies and provides relevant response
-Level 4 (Strong): Identifies underlying concern, uses value logic, preserves discipline
-Level 5 (Advanced): Handles layered objections, adapts dynamically
-
-Output JSON:
-{"objectionHandlingScore": 1.0-5.0, "objectionHandlingLevel": 1-5, "evidence": [{"statement": "", "observationType": "observed|inferred", "confidence": 0-1}], "strength": "", "weakness": "", "recommendedIntervention": "", "overallReadiness": 0-100, "otherCapabilities": [{"capability": "", "score": 0, "evidence": ""}]}
-
-Scenario: ${config.stakeholderRole}
-
-${conversation}`;
-
-    const result = await aiGateway.generate([
-      { role: 'system', content: 'You are an expert sales coach evaluating objection handling.' },
-      { role: 'user', content: prompt }
-    ], { jsonMode: true });
-
-    // Track successful provider call
-    lastProviderStatus = 'READY';
-    lastProviderCallStatus = 'SUCCESS';
-    lastProviderCallTimestamp = new Date().toISOString();
-
-    // Check for capability error
-    if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
-      return res.status(400).json({
-        error: 'MODEL_CAPABILITY_UNSUPPORTED',
-        message: result.message,
-        missingCapabilities: result.missingCapabilities,
-      });
-    }
-    
-    res.json(JSON.parse(result.content));
-  } catch (error) {
-    console.error('Evaluate error:', error);
-    console.error('Evaluate error details:', error.message);
-    console.error('Evaluate error stack:', error.stack);
-    
-    // Track provider failure
-    const errorMessage = error.message || '';
-    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '503';
-    } else if (errorMessage.includes('429')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '429';
-    } else {
-      lastProviderStatus = 'ERROR';
-      lastProviderCallStatus = 'ERROR';
-    }
-    lastProviderCallTimestamp = new Date().toISOString();
-    
-    // Ensure error is properly serialized
-    const errorResponse = {
-      error: 'LIVE_AI_ERROR',
-      message: error.message || 'Failed to evaluate practice with AI Gateway',
-      details: error.message || 'Unknown error occurred',
-      name: error.name || 'Error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    };
-    
-    console.error('Returning error response:', JSON.stringify(errorResponse));
-    
-    res.status(500).json(errorResponse);
-  }
-});
-
-// Analyze transcript
-app.post('/api/ai/analyze', async (req, res) => {
-  try {
-    const { transcript, interaction, brief } = req.body;
-    
-    const prompt = `Analyze transcript vs brief. Focus on objection handling.
-Output JSON:
-{"planVsActual": [{"intended": "", "actual": "", "impact": "Low|Medium|High", "explanation": ""}], "strengths": [], "missedOpportunities": [], "objectionHandlingScore": 1.0-5.0, "objectionHandlingEvidence": [{"statement": "", "observationType": "observed|inferred", "confidence": 0-1}], "repeatedPatterns": [], "likelyImpact": "", "nextIntervention": {"title": "", "description": "", "recommendedAction": "", "estimatedDuration": ""}}
-
-Interaction: ${interaction.name}
-Brief: ${JSON.stringify(brief.likelyObjections)}
-Transcript:
-${transcript}`;
-
-    const result = await aiGateway.generate([
-      { role: 'system', content: 'You are an expert sales coach analyzing a real customer interaction.' },
-      { role: 'user', content: prompt }
-    ], { jsonMode: true });
-
-    // Track successful provider call
-    lastProviderStatus = 'READY';
-    lastProviderCallStatus = 'SUCCESS';
-    lastProviderCallTimestamp = new Date().toISOString();
-
-    // Check for capability error
-    if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
-      return res.status(400).json({
-        error: 'MODEL_CAPABILITY_UNSUPPORTED',
-        message: result.message,
-        missingCapabilities: result.missingCapabilities,
-      });
-    }
-    
-    res.json(JSON.parse(result.content));
-  } catch (error) {
-    console.error('Analyze error:', error);
-    console.error('Analyze error details:', error.message);
-    console.error('Analyze error stack:', error.stack);
-    
-    // Track provider failure
-    const errorMessage = error.message || '';
-    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '503';
-    } else if (errorMessage.includes('429')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '429';
-    } else {
-      lastProviderStatus = 'ERROR';
-      lastProviderCallStatus = 'ERROR';
-    }
-    lastProviderCallTimestamp = new Date().toISOString();
-    
-    // Ensure error is properly serialized
-    const errorResponse = {
-      error: 'LIVE_AI_ERROR',
-      message: error.message || 'Failed to analyze transcript with AI Gateway',
-      details: error.message || 'Unknown error occurred',
-      name: error.name || 'Error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    };
-    
-    console.error('Returning error response:', JSON.stringify(errorResponse));
-    
-    res.status(500).json(errorResponse);
-  }
-});
-
-// Roleplay response
-app.post('/api/ai/roleplay/respond', async (req, res) => {
-  try {
-    const { userMessage, config, conversationHistory, sessionId } = req.body;
-    
-    console.log('📥 Received roleplay request');
-    console.log('  - Session ID:', sessionId);
-    console.log('  - Conversation history length:', conversationHistory?.length || 0);
-    console.log('  - User message:', userMessage?.substring(0, 100) || '(opening)');
-    console.log('🤖 Calling AI Gateway for roleplay...');
-
-    // Build messages for roleplay
-    const messages = [
-      {
-        role: 'system',
-        content: `You are ${config.stakeholderRole} in a business meeting roleplay.
-
-Profile: ${config.personality}; pressure: ${config.pressureLevel}.
-Objectives: ${config.objectives?.join(', ') || 'Negotiate effectively'}.
-Likely objections: ${config.likelyObjections?.join(', ') || 'Price, timing, competition'}.
-Constraints: ${config.commercialConstraints || 'Unknown; do not invent policies'}.
-Interaction context: ${config.interactionContext || 'Not provided'}.
-Performance plan: ${config.performancePlan || 'Not provided'}.
-Practice focus: ${config.targetBehavior || config.targetCapability || 'Objection Handling'}.
-Employee learning: ${config.employeeCapabilityState || 'Insufficient evidence'}.
-Desired outcome: ${config.desiredOutcome || 'Not provided'}.
-Required behaviors: ${config.requiredBehaviors?.join(' | ') || 'Not provided'}.
-Forbidden moves: ${config.forbiddenMoves?.join(' | ') || 'Do not invent facts or unapproved concessions'}.
-Deal intelligence supplied by the employee: ${JSON.stringify(config.dealIntelligence || {})}.
-Module: ${config.module || 'General sales practice'}.
-Scenario: ${config.scenarioTitle || 'Not provided'}.
-Known facts you may safely reference: ${config.knownFacts?.join(' | ') || 'None provided'}.
-Important unknowns: ${config.unknowns?.join(' | ') || 'None provided'}.
-Objection ladder: ${config.objectionLadder?.join(' | ') || config.likelyObjections?.join(' | ') || 'Price, timing, competition'}.
-Escalation triggers: ${config.triggerConditions?.join(' | ') || 'Use only after the seller earns the next stage'}.
-
-Pressure behavior: ${config.pressureLevel === 'high'
-  ? 'Be time-constrained and demanding. Ask for evidence, challenge unsupported value claims, and raise the next trade-off only after the seller addresses the current one.'
-  : config.pressureLevel === 'low'
-    ? 'Be collaborative. Share useful context after a relevant, specific question and raise one manageable concern at a time.'
-    : 'Be constructively skeptical. Require specificity, test one concern at a time, and reveal more context after the seller demonstrates understanding.'}
-
-Stay in character. Use the objection ladder progressively; do not introduce several objections at once. Never claim an unknown is a fact: ask a discovery question when it matters. Reply only with what the stakeholder would say: 1-2 concise sentences, no reasoning, labels, instructions, or meta-commentary.`
-      },
-      // The frontend stores model turns as "ai"; OpenAI-compatible providers
-      // require the wire-format role "assistant".
-      ...(conversationHistory || []).map(turn => ({
-        role: turn.role === 'ai' ? 'assistant' : turn.role,
-        content: turn.content,
-      })),
-      ...(!conversationHistory?.length || conversationHistory.at(-1)?.role !== 'user' || conversationHistory.at(-1)?.content !== userMessage
-        ? [{ role: 'user', content: userMessage || 'Start the conversation by introducing yourself and the meeting purpose.' }] : [])
-    ];
-
-    const result = await aiGateway.generate(messages, {
-      temperature: 0.4,
-      maxTokens: 160
-    });
-
-    // Track successful provider call
-    lastProviderStatus = 'READY';
-    lastProviderCallStatus = 'SUCCESS';
-    lastProviderCallTimestamp = new Date().toISOString();
-
-    // Check for capability error
-    if (result.error === 'MODEL_CAPABILITY_UNSUPPORTED') {
-      return res.status(400).json({
-        error: 'MODEL_CAPABILITY_UNSUPPORTED',
-        message: result.message,
-        missingCapabilities: result.missingCapabilities,
-      });
-    }
-
-    console.log('✅ Roleplay response generated');
-
-    // Clean response to prevent prompt leakage
-    let cleanedResponse = validateAndCleanRoleplayResponse(result.content, config.stakeholderRole);
-
-    if (!cleanedResponse.trim()) throw new Error('Stakeholder response was empty. Please retry.');
-
-    // Determine conversation state
-    const conversationState = determineConversationState(conversationHistory, cleanedResponse, userMessage);
-
-    res.json({
-      response: cleanedResponse,
-      sessionId: sessionId,
-      conversationState: conversationState
-    });
-  } catch (error) {
-    console.error('❌ Roleplay error:', error);
-    console.error('❌ Error details:', error.message);
-    console.error('❌ Error stack:', error.stack);
-    
-    // Track provider failure
-    const errorMessage = error.message || '';
-    if (errorMessage.includes('503') || errorMessage.includes('TEMPORARILY_UNAVAILABLE')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '503';
-    } else if (errorMessage.includes('429')) {
-      lastProviderStatus = 'TEMPORARILY_UNAVAILABLE';
-      lastProviderCallStatus = '429';
-    } else {
-      lastProviderStatus = 'ERROR';
-      lastProviderCallStatus = 'ERROR';
-    }
-    lastProviderCallTimestamp = new Date().toISOString();
-    
-    // Ensure error is properly serialized
-    const errorResponse = {
-      error: 'LIVE_AI_ERROR',
-      message: error.message || 'Unknown error occurred',
-      details: error.message || 'Unknown error occurred',
-      name: error.name || 'Error',
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    };
-    
-    console.error('❌ Returning error response:', JSON.stringify(errorResponse));
-    
-    res.status(500).json(errorResponse);
-  }
+app.post('/api/ai/roleplay/respond', async (req,res) => {
+  try { validateRoleplayRequest(req.body); } catch (error) { return res.status(400).json({error:'INVALID_REQUEST',message:error.message}); }
+  try { const result=await simulateStakeholder(aiGateway,req.body); recordProviderSuccess(); res.json(result); }
+  catch (error) { recordProviderFailure(error); res.status(503).json({error:'LIVE_AI_ERROR',message:'Practice could not be completed. No performance assessment was generated. Retry when the provider is available.'}); }
 });
 
 // Serve static files in production
@@ -821,7 +390,9 @@ if (process.env.NODE_ENV === 'production') {
   console.log('🔍 Serving static files from:', distPath);
   app.use(express.static(distPath));
   
+  app.use('/api', (req,res) => res.status(404).json({error:'NOT_FOUND',message:'Unknown API route'}));
   app.get('*', (req, res) => {
+    if (path.extname(req.path) || req.path.startsWith('/assets/') || !req.accepts('html') || !/^\/(?:$|dashboard\/?$|create\/?$|validation\/?$|capabilities\/?$|performance(?:\/[^.]*)?$)/.test(req.path)) return res.status(404).send('Not found');
     console.log('🔍 Serving index.html for route:', req.path);
     res.sendFile(path.join(distPath, 'index.html'));
   });
@@ -829,6 +400,7 @@ if (process.env.NODE_ENV === 'production') {
   console.log('⚠️ Not in production mode, not serving static files');
 }
 
+app.use((error,req,res,next)=>{if(res.headersSent)return next(error);res.status(error.type==='entity.parse.failed'?400:error.type==='entity.too.large'?413:500).json({error:'REQUEST_FAILED',message:'The request could not be processed.'});});
 app.listen(PORT, '0.0.0.0', () => {
   const info = aiGateway.getInfo();
   console.log('='.repeat(60));
@@ -838,7 +410,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🤖 Model: ${info.model}`);
   console.log(`🎯 Capabilities: ${(info.capabilities || []).join(', ') || 'unavailable'}`);
   console.log(`📏 Max Context: ${info.maxContext ? info.maxContext.toLocaleString() : 'unavailable'} tokens`);
-  console.log(`🔑 API Key: ${info.apiKeySet ? '✅ SET' : '❌ NOT SET'}`);
+  console.log(`🔑 Provider initialized: ${info.initialized ? 'YES' : 'NO'}`);
   console.log(`🔒 Mode: LIVE AI (API key secured server-side)`);
   console.log(`🌐 Port: ${PORT}`);
   console.log(`🌍 NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);

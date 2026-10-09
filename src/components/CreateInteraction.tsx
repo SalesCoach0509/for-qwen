@@ -1,5 +1,7 @@
+import { taxonomy, profiles, rubricLibrary } from '../product-spec';
+import { SmartIntake } from './SmartIntake';
 import { useState } from 'react';
-import { AppState } from '../types';
+import { AppState, ExperienceLevel, StakeholderSeniority, CapabilityName } from '../types';
 import { store } from '../store';
 import { v4 as uuidv4 } from 'uuid';
 import { ArrowLeft, Target, Calendar, User, Clock, FileText, MessageSquare } from 'lucide-react';
@@ -14,6 +16,7 @@ interface Props {
 
 export default function CreateInteraction({ navigate }: Props) {
   const [form, setForm] = useState({
+    stakeholder:'', interactionType:'renewal', experienceLevel:'Experienced' as ExperienceLevel, stakeholderSeniority:'Manager' as StakeholderSeniority, focusCapability:'Objection Handling' as CapabilityName, risks:'',
     name: '',
     customer: '',
     role: '',
@@ -26,7 +29,7 @@ export default function CreateInteraction({ navigate }: Props) {
   });
 
   const loadDemo = () => {
-    setForm({
+    setForm({...form,
       name: demoInteraction.name || '',
       customer: demoInteraction.customer || '',
       role: demoInteraction.role || '',
@@ -49,10 +52,10 @@ export default function CreateInteraction({ navigate }: Props) {
       customer: form.customer,
       role: form.role || 'Account Executive',
       stakeholderRole: form.stakeholderRole || 'Stakeholder',
-      stakeholder: form.stakeholderRole || 'Stakeholder',
-      interactionType: 'Customer interaction',
+      stakeholder: form.stakeholder || form.stakeholderRole || 'Stakeholder',
+      interactionType: form.interactionType, experienceLevel:form.experienceLevel, stakeholderSeniority:form.stakeholderSeniority, risks:form.risks.split('\n').filter(Boolean), previousInteractionId:[...store.getState().analyses].reverse()[0]?.interactionId,
       priority: 'medium' as const,
-      focusCapability: 'Objection Handling' as const,
+      focusCapability: form.focusCapability,
       dateTime: form.dateTime || new Date(Date.now() + 86400000).toISOString().slice(0, 16),
       objective: form.objective,
       agenda: form.agenda,
@@ -82,8 +85,9 @@ export default function CreateInteraction({ navigate }: Props) {
 
       <main className="max-w-3xl mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl border border-surface-100 p-6 shadow-sm animate-fade-in">
+          <SmartIntake current={form} apply={values=>setForm(f=>({...f,...values}))} />
           {/* Demo loader */}
-          <div className="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100">
+          {store.getState().mode==='DEMO' && <div className="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100">
             <p className="text-sm text-primary-700 mb-2 font-medium">New here?</p>
             <p className="text-sm text-primary-600 mb-3">Load a demo scenario to see the full experience.</p>
             <button
@@ -92,9 +96,14 @@ export default function CreateInteraction({ navigate }: Props) {
             >
               Load Demo: Enterprise Renewal
             </button>
-          </div>
+          </div>}
 
           <div className="space-y-5">
+            <label className="block text-sm font-medium">Performance moment<select aria-label="Performance moment" value={form.interactionType} onChange={e=>setForm(f=>({...f,interactionType:e.target.value,focusCapability:taxonomy.find(m=>m.id===e.target.value)!.capabilities[0] as CapabilityName}))} className="block border rounded-lg p-3 w-full mt-1">{[...new Set(taxonomy.map(m=>m.category))].map(c=><optgroup key={c} label={c}>{taxonomy.filter(m=>m.category===c).map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</optgroup>)}</select></label>
+            <div className="grid md:grid-cols-2 gap-4"><label className="text-sm font-medium">Experience / complexity<select aria-label="Experience / complexity" value={form.experienceLevel} onChange={e=>setForm(f=>({...f,experienceLevel:e.target.value as ExperienceLevel}))} className="block border rounded-lg p-3 w-full">{Object.keys(profiles).map(v=><option key={v}>{v}</option>)}</select></label><label className="text-sm font-medium">Stakeholder seniority<select aria-label="Stakeholder seniority" value={form.stakeholderSeniority} onChange={e=>setForm(f=>({...f,stakeholderSeniority:e.target.value as StakeholderSeniority}))} className="block border rounded-lg p-3 w-full">{['Individual Contributor','Manager','Director','VP','C-Level / Board'].map(v=><option key={v}>{v}</option>)}</select></label></div>
+            <p className="text-xs text-surface-500">{profiles[form.experienceLevel].evaluationStandard}</p>
+            <label className="block text-sm font-medium">Capability focus<select aria-label="Capability focus" value={form.focusCapability} onChange={e=>setForm(f=>({...f,focusCapability:e.target.value as CapabilityName}))} className="block border rounded-lg p-3 w-full">{Object.keys(rubricLibrary).map(v=><option key={v}>{v}</option>)}</select></label>
+            <label className="block text-sm font-medium">Stakeholder name<input aria-label="Stakeholder name" className="block border rounded-lg p-3 w-full" value={form.stakeholder} onChange={e=>setForm(f=>({...f,stakeholder:e.target.value}))}/></label>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="flex items-center gap-1.5 text-sm font-medium text-surface-700 mb-1.5">

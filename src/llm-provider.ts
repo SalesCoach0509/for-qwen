@@ -1,10 +1,10 @@
+import { DemoProvider, demoRoleplay } from './demo-provider';
+import { RoleplayConfig, StakeholderState, CompletionReason } from './types';
 import { store } from './store';
 import { v4 as uuidv4 } from 'uuid';
 // Live AI provider proxy. API keys remain on the Express backend.
 
-const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-const configuredBackendUrl = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
-const BACKEND_URL = configuredBackendUrl || (isLocalDevelopment ? 'http://localhost:3001' : '');
+import { BACKEND_URL } from './backend-url';
 const BACKEND_STATUS_TIMEOUT_MS = Number(import.meta.env.VITE_BACKEND_STATUS_TIMEOUT_MS || '5000');
 const AI_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_AI_REQUEST_TIMEOUT_MS || '125000');
 
@@ -46,7 +46,7 @@ class BackendProxyProvider implements LLMProvider {
       }
       const data = await response.json();
       if (typeof data.content !== 'string' || !data.content.trim()) throw new Error('AI returned empty content.');
-      store.recordAiOperation({ operation: options?.operation || 'LLM_CHAT', provider: getProviderInfo().name, model: getProviderInfo().model, promptVersion: 'performance-v1', requestId, latency: Date.now() - startTime, timestamp: new Date().toISOString(), success: true });
+      store.recordAiOperation({ operation: options?.operation || 'LLM_CHAT', provider: getProviderInfo().name, model: getProviderInfo().model, promptVersion: 'performance-v1.1', requestId, latency: Date.now() - startTime, timestamp: new Date().toISOString(), success: true });
       return { content: data.content, usage: data.usage };
     } catch (error) {
       const latency = Date.now() - startTime;
@@ -58,18 +58,19 @@ class BackendProxyProvider implements LLMProvider {
 }
 
 export function createLLMProvider(): LLMProvider {
-  return new BackendProxyProvider('/api/ai/chat');
+  return store.getState().mode==='DEMO' ? new DemoProvider() : new BackendProxyProvider('/api/ai/chat');
 }
 
 export class RoleplayProvider {
   static async getRoleplayResponse(
     userMessage: string,
-    config: unknown,
+    config: RoleplayConfig,
     conversationHistory: { role: 'ai' | 'user'; content: string }[],
     sessionId?: string
-  ): Promise<{ response: string; sessionId?: string; conversationState?: string; aiMeta?: unknown }> {
+  ): Promise<{ response: string; sessionId: string; interactionId: string; interactionState: StakeholderState; completionReason?: CompletionReason; conversationState?: string; aiMeta?: unknown }> {
     const startTime = Date.now();
     const requestId = uuidv4();
+    if(store.getState().mode==='DEMO') return demoRoleplay(userMessage,config,conversationHistory,sessionId);
     let success = false;
     try {
     const response = await fetch(`${BACKEND_URL}/api/ai/roleplay/respond`, {
@@ -83,7 +84,8 @@ export class RoleplayProvider {
       throw new Error(`LIVE AI ERROR: ${error.message || JSON.stringify(error)}`);
     }
     const result = await response.json();
-    if (typeof result.response !== 'string' || !result.response.trim()) throw new Error('Stakeholder response was empty.');
+    if (typeof result.stakeholderResponse !== 'string' || !result.stakeholderResponse.trim() || result.sessionId!==sessionId || result.interactionId!==config.interactionId || !['OPEN','CURIOUS','SKEPTICAL','CONCERNED','RESISTANT','NEGOTIATING','FRUSTRATED','REASSURED','READY_TO_ADVANCE','READY_TO_EXIT'].includes(result.interactionState)) throw new Error('Invalid stakeholder response or session identity.');
+    result.response=result.stakeholderResponse;
     success = true;
     return result;
     } finally {
@@ -93,6 +95,7 @@ export class RoleplayProvider {
 }
 
 export async function checkBackendHealth(): Promise<{ available: boolean; provider?: string; model?: string }> {
+  if(store.getState().mode==='DEMO')return {available:false,provider:'Synthetic demo',model:'Fixtures'};
   try {
     const response = await fetch(`${BACKEND_URL}/api/health`, {
       method: 'GET', signal: AbortSignal.timeout(BACKEND_STATUS_TIMEOUT_MS),
@@ -119,5 +122,5 @@ export function setLLMAvailable(available: boolean, provider?: string, model?: s
 }
 
 export function getProviderInfo(): { name: string; model: string; isLive: boolean } {
-  return providerInfo;
+  return store.getState().mode==='DEMO'?{name:'Synthetic demo',model:'Fixtures — no live AI',isLive:false}:providerInfo;
 }

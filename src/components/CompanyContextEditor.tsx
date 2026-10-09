@@ -1,0 +1,8 @@
+import { useState } from 'react';
+import { CompanyContext } from '../types';
+import { store } from '../store';
+export default function CompanyContextEditor(){
+ const [values,setValues]=useState<CompanyContext>(store.getState().companyContext||{}),[saved,setSaved]=useState(false);
+ const fields: [keyof CompanyContext,string][]=[['products','Products / packages'],['pricing','Pricing'],['discountRules','Discount policy'],['positioning','Positioning'],['salesMethodology','Sales methodology'],['customerPersonas','Personas'],['objectionHandling','Objection guidance'],['sop','Standard operating procedures'],['approvedMessaging','Approved messaging'],['escalationRules','Escalation rules'],['competencyFramework','Competency framework']];
+ return <details className="bg-white border rounded-xl p-5 mt-5"><summary className="font-semibold">Company context (optional)</summary><p className="text-sm mt-3">Add company information you are authorized to use. This local context is supplied by you; it is not independently verified. Leave unknown policies blank.</p><div className="grid md:grid-cols-2 gap-3 mt-3">{fields.map(([key,label])=><label key={key} className="text-sm">{label}<textarea className="block border rounded p-2 w-full" value={values[key]||''} onChange={e=>{setValues(v=>({...v,[key]:e.target.value}));setSaved(false);}}/></label>)}</div><button className="mt-3 border rounded px-4 py-2" onClick={()=>{const context=Object.fromEntries(Object.entries(values).filter(([,v])=>v?.trim()));store.setCompanyContext(Object.keys(context).length?context:null);setSaved(true);}}>Save company context</button>{saved&&<p role="status" className="text-sm mt-2">Saved. New plans will use this context.</p>}</details>;
+}

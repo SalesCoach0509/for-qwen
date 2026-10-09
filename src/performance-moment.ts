@@ -11,7 +11,7 @@ const legacyStatuses: Record<string, PerformanceMomentStatus> = {
 };
 
 export function normalizeStatus(status: string): PerformanceMomentStatus {
-  return legacyStatuses[status] || status as PerformanceMomentStatus;
+  return legacyStatuses[status] || (Object.prototype.hasOwnProperty.call(allowed,status)?status as PerformanceMomentStatus:'UPCOMING');
 }
 
 const allowed: Record<PerformanceMomentStatus, PerformanceMomentStatus[]> = {
@@ -20,14 +20,14 @@ const allowed: Record<PerformanceMomentStatus, PerformanceMomentStatus[]> = {
   PREPARATION_FAILED: ['PREPARING'],
   PREPARED: ['PRACTICING', 'PERFORMED'],
   PRACTICING: ['READY', 'PRACTICE_FAILED', 'PERFORMED', 'COMPLETED'],
-  PRACTICE_FAILED: ['PRACTICING'],
+  PRACTICE_FAILED: ['PRACTICING', 'PERFORMED'],
   READY: ['PERFORMED', 'PRACTICING'],
   PERFORMED: ['ANALYZING'],
   ANALYZING: ['ANALYZED', 'ANALYSIS_FAILED'],
-  ANALYSIS_FAILED: ['ANALYZING'],
-  ANALYZED: ['IMPROVING', 'COMPLETED'],
+  ANALYSIS_FAILED: ['ANALYZING', 'PERFORMED'],
+  ANALYZED: ['IMPROVING', 'COMPLETED', 'PERFORMED'],
   IMPROVING: ['COMPLETED', 'PRACTICING'],
-  COMPLETED: ['PRACTICING'],
+  COMPLETED: ['PRACTICING', 'PERFORMED'],
 };
 
 export function canTransition(from: PerformanceMomentStatus, to: PerformanceMomentStatus): boolean {

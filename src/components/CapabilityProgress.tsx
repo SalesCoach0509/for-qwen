@@ -10,7 +10,7 @@ interface Props {
 }
 
 export default function CapabilityProgress({ state, navigate }: Props) {
-  const capabilities = state.capabilityHistory;
+  const capabilities = state.capabilityHistory.filter(c=>c.scores.length>0&&c.currentScore>=1);
   
   const radarData = capabilities.map(cap => ({
     capability: cap.capability,
@@ -95,8 +95,8 @@ export default function CapabilityProgress({ state, navigate }: Props) {
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-emerald-700">Improving</h2><p className="text-sm mt-2">{capabilities.find(c => c.trend === 'improving')?.capability || 'More observations needed'}</p></div>
-          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-amber-700">Recurring risk</h2><p className="text-sm mt-2">{capabilities.find(c => c.knownWeakness)?.knownWeakness || 'No recurring risk observed yet'}</p></div>
-          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-primary-700">Current development focus</h2><p className="text-sm mt-2">{capabilities.find(c => c.nextRecommendation)?.nextRecommendation || 'Objection Handling'}</p></div>
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-amber-700">Recurring risk</h2><p className="text-sm mt-2">{capabilities.find(c => (c.patterns||[]).length)?.patterns?.[0] || 'No recurring risk observed yet'}</p></div>
+          <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-primary-700">Current development focus</h2><p className="text-sm mt-2">{capabilities.find(c => c.nextRecommendation)?.nextRecommendation || 'More evidence needed'}</p></div>
           <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-surface-700">New signal</h2><p className="text-sm mt-2">{[...capabilities].sort((a, b) => Date.parse(b.lastUpdated || '') - Date.parse(a.lastUpdated || ''))[0]?.evidenceHistory?.slice(-1)[0]?.behaviorObserved || 'No new evidence yet'}</p></div>
           <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-surface-700">Last intervention</h2><p className="text-sm mt-2">{capabilities.find(c => c.recentIntervention)?.recentIntervention || 'None yet'}</p></div>
           <div className="bg-white rounded-xl border border-surface-100 p-5"><h2 className="font-semibold text-surface-700">Next challenge</h2><p className="text-sm mt-2">{capabilities.find(c => c.nextRecommendation)?.nextRecommendation || 'Bring a real performance moment to your coach'}</p></div>

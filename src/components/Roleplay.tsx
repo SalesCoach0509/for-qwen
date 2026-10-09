@@ -19,169 +19,66 @@ export default function Roleplay({ state, interactionId, navigate }: Props) {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [config, setConfig] = useState<RoleplayConfig | null>(null);
-  const [, setConversationState] = useState<string>('OPENING');
   const [sessionFailed, setSessionFailed] = useState(false);
   const [failureMessage, setFailureMessage] = useState('');
-  const initializedInteractionRef = useRef<string | null>(null);
+  const active = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channel = useRef<PracticeChannel>(new TextPracticeChannel());
 
   const interaction = state.interactions.find(i => i.id === interactionId);
   const brief = store.getBriefForInteraction(interactionId || '');
 
-  useEffect(() => {
-    if (!interaction || !brief) return;
-    if (initializedInteractionRef.current === interaction.id) return;
-    initializedInteractionRef.current = interaction.id;
-    
-    const latestAnalysis = [...store.getState().analyses].reverse().find(a => a.interactionId === interaction.id);
-    const baseConfig = generateRoleplayConfig(interaction, brief);
-    const roleplayConfig = latestAnalysis ? {
-      ...baseConfig,
-      objectives: [latestAnalysis.nextIntervention.recommendedAction],
-      targetCapability: latestAnalysis.nextIntervention.targetCapability,
-      targetBehavior: latestAnalysis.nextIntervention.recommendedAction,
-      performancePlan: `Targeted practice after the real interaction: ${latestAnalysis.nextIntervention.title}. ${latestAnalysis.nextIntervention.recommendedAction}`,
-    } : baseConfig;
-    setConfig(roleplayConfig);
-    const currentStatus = store.getState().interactions.find(i => i.id === interaction.id)?.status;
-    if (currentStatus === 'ANALYZED') store.transitionInteraction(interaction.id, 'IMPROVING');
-    if (currentStatus !== 'PRACTICING') store.transitionInteraction(interaction.id, 'PRACTICING');
-
-    // Create session with unique ID
-    const sessionId = uuidv4();
-    const newSession: PracticeSession = {
-      id: sessionId,
-      interactionId: interaction.id,
-      config: roleplayConfig,
-      turns: [],
-      status: 'active',
-      startedAt: new Date().toISOString(),
-    };
-    store.addPracticeSession(newSession);
-    setSession(newSession);
-
-    // AI opens
-    setTimeout(async () => {
-      try {
-        // Pass empty conversation history for opening, with session ID
-        channel.current.send('', roleplayConfig, [], sessionId);
-        const opening = await channel.current.receive();
-        
-        // Validate session ID in response
-        if (opening.sessionId && opening.sessionId !== sessionId) {
-          console.error('Session ID mismatch');
-          store.transitionInteraction(interaction.id, 'PRACTICE_FAILED');
-          setSessionFailed(true);
-          return;
-        }
-        if (!opening.response.trim()) throw new Error('Stakeholder opening was empty.');
-        
-        const aiTurn: PracticeTurn = {
-          id: uuidv4(),
-          role: 'ai',
-          content: opening.response,
-          timestamp: new Date().toISOString(),
-        };
-        const updatedSession = { ...newSession, turns: [aiTurn] };
-        store.updatePracticeSession(newSession.id, { turns: [aiTurn] });
-        setSession(updatedSession);
-        
-        // Update conversation state
-        if (opening.conversationState) {
-          setConversationState(opening.conversationState);
-        }
-      } catch (error) {
-        console.error('Roleplay opening error:', error);
-        setFailureMessage(error instanceof Error ? error.message : 'Practice could not start.');
-        store.transitionInteraction(interaction.id, 'PRACTICE_FAILED');
-        setSessionFailed(true);
-      }
-    }, 800);
-  }, [interactionId]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [session?.turns]);
-
-  const handleSend = () => {
-    if (!input.trim() || !session || !config || isTyping || session.turns.length === 0) return;
-
-    const userTurn: PracticeTurn = {
-      id: uuidv4(),
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    const updatedTurns = [...session.turns, userTurn];
-    setSession({ ...session, turns: updatedTurns });
-    store.updatePracticeSession(session.id, { turns: updatedTurns });
-    setInput('');
-
-    // AI responds
-    setIsTyping(true);
-    setTimeout(async () => {
-      try {
-        // CRITICAL: Pass full conversation history to AI with session ID
-        channel.current.send(input.trim(), config, updatedTurns, session.id);
-        const response = await channel.current.receive();
-        
-        // Validate session ID
-        if (response.sessionId && response.sessionId !== session.id) {
-          console.error('Session ID mismatch in response');
-          if (interactionId) store.transitionInteraction(interactionId, 'PRACTICE_FAILED');
-          setSessionFailed(true);
-          setIsTyping(false);
-          return;
-        }
-        if (!response.response.trim()) throw new Error('Stakeholder response was empty.');
-        
-        const aiTurn: PracticeTurn = {
-          id: uuidv4(),
-          role: 'ai',
-          content: response.response,
-          timestamp: new Date().toISOString(),
-        };
-        const finalTurns = [...updatedTurns, aiTurn];
-        const updatedSession = { ...session, turns: finalTurns };
-        store.updatePracticeSession(session.id, { turns: finalTurns });
-        setSession(updatedSession);
-        
-        // Update conversation state
-        if (response.conversationState) {
-          setConversationState(response.conversationState);
-          
-        }
-        
-        setIsTyping(false);
-      } catch (error) {
-        console.error('Roleplay error:', error);
-        setIsTyping(false);
-        setSessionFailed(true);
-        if (interactionId) store.transitionInteraction(interactionId, 'PRACTICE_FAILED');
-        // Show error to user instead of silently failing
-        alert(`AI Error: ${error}. Session could not be completed.`);
-      }
-    }, 1200 + Math.random() * 800);
+  const fail = (id:string) => {
+    if(!active.current)return;
+    store.updatePracticeSession(id,{status:'failed'});
+    if(interactionId)store.transitionInteraction(interactionId,'PRACTICE_FAILED');
+    setSessionFailed(true);setIsTyping(false);
+    setFailureMessage('Practice could not be completed. No performance assessment was generated.');
   };
-
-  const handleEndSession = () => {
-    if (!session || isTyping) return;
-    
-    // Validate session has minimum required turns
-    const userTurns = session.turns.filter(t => t.role === 'user');
-    const aiTurns = session.turns.filter(t => t.role === 'ai');
-    
-    if (userTurns.length === 0 || aiTurns.length === 0) {
-      alert('Practice session incomplete. No performance assessment can be generated.');
-      navigate('dashboard');
-      return;
-    }
-    
-    const completedSession = { ...session, status: 'completed' as const, completedAt: new Date().toISOString() };
-    store.updatePracticeSession(session.id, completedSession);
-    navigate('results', interactionId || undefined, session.id);
+  useEffect(() => {
+    active.current=true;
+    if(!interaction||!brief)return()=>{active.current=false;};
+    const latest=store.getAnalysisForInteraction(interaction.id);
+    const base=generateRoleplayConfig(interaction,brief);
+    const roleplayConfig=latest?{...base,targetCapability:latest.nextIntervention.targetCapability,targetBehavior:latest.nextIntervention.targetBehavior,objectives:[latest.nextIntervention.recommendedAction],performancePlan:JSON.stringify(latest.nextIntervention)}:base;
+    setConfig(roleplayConfig);
+    if(interaction.status==='ANALYZED')store.transitionInteraction(interaction.id,'IMPROVING');
+    store.transitionInteraction(interaction.id,'PRACTICING');
+    const created:PracticeSession={id:uuidv4(),interactionId:interaction.id,config:roleplayConfig,turns:[],status:'active',startedAt:new Date().toISOString()};
+    store.addPracticeSession(created);setSession(created);setIsTyping(true);
+    (async()=>{try{
+      channel.current.send('',roleplayConfig,[],created.id);
+      const opening=await channel.current.receive();
+      if(!active.current)return;
+      if(opening.sessionId!==created.id||opening.interactionId!==interaction.id)throw new Error('Response identity mismatch');
+      const turns:PracticeTurn[]=[{id:uuidv4(),role:'ai',content:opening.response,timestamp:new Date().toISOString()}];
+      const update={turns,stakeholderState:opening.interactionState};
+      store.updatePracticeSession(created.id,update);setSession({...created,...update});setIsTyping(false);
+    }catch{fail(created.id);}})();
+    return()=>{active.current=false;const saved=store.getState().practiceSessions.find(s=>s.id===created.id);if(saved?.status==='active'){store.updatePracticeSession(created.id,{status:'failed'});if(store.getState().interactions.find(i=>i.id===interaction.id)?.status==='PRACTICING')store.transitionInteraction(interaction.id,'PRACTICE_FAILED');}};
+  },[interactionId]);
+  useEffect(()=>{messagesEndRef.current?.scrollIntoView({behavior:'smooth'});},[session?.turns]);
+  const handleSend=async()=>{
+    if(!input.trim()||!session||!config||isTyping||!session.turns.length||session.status!=='active')return;
+    const message=input.trim();
+    const turns:PracticeTurn[]=[...session.turns,{id:uuidv4(),role:'user',content:message,timestamp:new Date().toISOString()}];
+    store.updatePracticeSession(session.id,{turns});setSession({...session,turns});setInput('');setIsTyping(true);
+    try{
+      channel.current.send(message,{...config,stakeholderState:session.stakeholderState},turns,session.id);
+      const reply=await channel.current.receive();
+      if(!active.current)return;
+      if(reply.sessionId!==session.id||reply.interactionId!==session.interactionId)throw new Error('Response identity mismatch');
+      const finalTurns:PracticeTurn[]=[...turns,{id:uuidv4(),role:'ai',content:reply.response,timestamp:new Date().toISOString()}];
+      const updated:PracticeSession={...session,turns:finalTurns,stakeholderState:reply.interactionState,status:reply.completionReason?'completed':'active',completionReason:reply.completionReason,completedAt:reply.completionReason?new Date().toISOString():undefined};
+      store.updatePracticeSession(session.id,updated);setSession(updated);setIsTyping(false);
+      if(reply.completionReason)navigate('results',session.interactionId,session.id);
+    }catch{fail(session.id);}
+  };
+  const handleEndSession=()=>{
+    if(!session||isTyping||session.status==='failed')return;
+    if(!session.turns.some(t=>t.role==='user')||session.turns[session.turns.length-1]?.role!=='ai'){fail(session.id);return;}
+    store.updatePracticeSession(session.id,{status:'completed',completionReason:'USER_END',completedAt:new Date().toISOString()});
+    navigate('results',session.interactionId,session.id);
   };
 
   if (!interaction || !brief) return <div className="p-8"><h1>Practice setup is incomplete</h1><p>Open the performance plan before practicing.</p><button onClick={() => navigate('dashboard')}>Return home</button></div>;

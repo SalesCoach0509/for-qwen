@@ -187,7 +187,7 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
         
         if (error.name === 'AbortError') {
           const requestTimeoutMs = getAttemptTimeoutMs();
-          console.error(`✗ ${this.name} request timed out after ${requestTimeoutMs}ms`);
+        console.error('Provider request failed; response details withheld.');
           const timeoutError = new Error(`${this.name} API request timed out after ${requestTimeoutMs}ms. The model may be overloaded or slow to respond.`);
           timeoutError.name = 'TimeoutError';
           if (attempt === maxRetries) {
@@ -207,7 +207,7 @@ export class OpenAICompatibleAdapter extends BaseProviderAdapter {
           errorMessage.includes('TEMPORARILY_UNAVAILABLE');
         
         if (!isTransient || attempt === maxRetries) {
-          console.error(`✗ ${this.name} call failed after ${latency}ms (attempt ${attempt}):`, error);
+        console.error('Provider request failed; response details withheld.');
           throw error;
         }
         
@@ -310,15 +310,14 @@ export class GeminiAdapter extends BaseProviderAdapter {
         
         if (!isTransient || attempt === maxRetries) {
           // Not transient or max retries reached - throw error
-          console.error(`✗ Gemini call failed after ${latency}ms (attempt ${attempt}):`, error);
+        console.error('Provider request failed; response details withheld.');
           
           // Ensure error is properly serialized with all details
           const errorName = error.name || 'Error';
           const errorDetails = error.details || error.cause || {};
-          
-          console.error(`✗ Error name: ${errorName}`);
-          console.error(`✗ Error message: ${errorMessage}`);
-          console.error(`✗ Error details:`, errorDetails);
+        console.error('Provider request failed; response details withheld.');
+        console.error('Provider request failed; response details withheld.');
+        console.error('Provider request failed; response details withheld.');
           
           // Create a new error with all details preserved
           const wrappedError = new Error(`${errorName}: ${errorMessage}`);
@@ -412,7 +411,7 @@ export class QwenAdapter extends OpenAICompatibleAdapter {
       };
     } catch (error) {
       const latency = Date.now() - startTime;
-      console.error(`✗ Qwen call failed after ${latency}ms:`, error);
+        console.error('Provider request failed; response details withheld.');
       throw error;
     }
   }

@@ -54,9 +54,11 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
     }
 
     // Generate evaluation with session validation
+    let active=true;
     const turns = session.turns.map(t => ({ role: t.role, content: t.content }));
     generatePracticeEvaluation(turns, session.config, session.id).then(async eval_ => {
-      // CRITICAL: Validate evaluation session ID
+      if(!active)return;
+      // Validate evaluation session ID
       if (eval_.sessionId && eval_.sessionId !== session.id) {
         console.error('Generated evaluation session ID mismatch');
         setLoading(false);
@@ -74,10 +76,11 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
       };
       // Update capability history (async with judge validation)
       const updatedHistory = await updateCapabilityHistory(
-        state.capabilityHistory,
+        store.getState().capabilityHistory,
         evaluationWithIds.capabilityScores,
         'Practice session'
       );
+      if(!active)return;
       store.addPracticeEvaluation(evaluationWithIds);
       store.updateCapabilityHistory(updatedHistory, session.interactionId);
       if (evaluationWithIds.capabilityScores.some(score => score.evidence.length > 0)
@@ -89,14 +92,16 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
       
       setEvaluation(evaluationWithIds);
       setLoading(false);
-    }).catch(error => {
-      console.error('Evaluation generation failed:', error);
+    }).catch(() => {
+      if(!active)return;
+      console.error('Evaluation generation failed');
       if (store.getState().interactions.find(i => i.id === session.interactionId)?.status === 'PRACTICING') {
         store.transitionInteraction(session.interactionId, 'PRACTICE_FAILED');
       }
       setLoading(false);
     });
-  }, [session]);
+    return()=>{active=false;};
+  }, [sessionId]);
 
   if (loading) {
     return (
@@ -194,7 +199,7 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
           </div>
           <p className="text-sm text-surface-500 mt-3">
             {readiness === 'INSUFFICIENT_EVIDENCE' ? 'The conversation did not provide enough observable behaviour to assess readiness.' : readiness === 'READY'
-              ? 'You demonstrated strong capability across most areas. Focus on maintaining this level in the real interaction.'
+              ? 'Your observed target capability met the practice threshold. Apply the prepared behaviors in the real interaction.'
               : readiness === 'READY_ONE_RISK_REMAINS'
               ? 'Functional performance with clear areas for improvement. Focus on the recommended interventions.'
               : 'Significant gaps identified. Prioritize the recommended practice before the real interaction.'}
@@ -248,6 +253,7 @@ export default function PracticeResults({ state, sessionId, navigate }: Props) {
           </div>
         </div>
 
+        <details className="p-5 rounded-xl border bg-white"><summary className="font-semibold">Evidence coverage, confidence and dimensions</summary>{evaluation.capabilityScores.map(c=><div key={c.capability} className="mt-3"><h3>{c.capability} · {c.evidence.length} observations · Confidence: {c.confidence>=.75?'High':c.confidence>=.5?'Medium':'Low'}</h3>{c.evidence.map(e=><blockquote key={e.evidenceId} className="border-l-2 pl-3 my-3 text-sm">“{e.sourceText}”<p>Employee turn {e.turnNumber} · {e.behaviorObserved}</p></blockquote>)}{Object.entries(c.dimensions||{}).map(([name,score])=><p className="text-sm" key={name}>{name}: {score===null?'NOT OBSERVED':score+' / 5'}</p>)}</div>)}</details>
         {/* Strengths & Weaknesses */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-emerald-50 rounded-xl border border-emerald-100 p-5 animate-fade-in" style={{ animationDelay: '0.2s' }}>

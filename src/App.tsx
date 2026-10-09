@@ -18,7 +18,7 @@ import { checkBackendHealth, setLLMAvailable } from './llm-provider';
 
 type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap' | 'validation' | 'demo';
 
-function App() {
+function Screens() {
   const [state, setState] = useState<AppState>(store.getState());
   const [screen, setScreen] = useState<Screen>(state.user ? 'dashboard' : 'login');
   const [activeInteractionId, setActiveInteractionId] = useState<string | null>(null);
@@ -62,17 +62,17 @@ function App() {
     case 'create':
       return <CreateInteraction state={state} navigate={navigate} />;
     case 'brief':
-      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PerformanceBrief state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PerformanceBrief key={activeInteractionId} state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'scenario':
       return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><ScenarioPlanner key={activeInteractionId} state={state} interactionId={activeInteractionId || undefined} navigate={navigate} /></>;
     case 'roleplay':
-      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><Roleplay state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><Roleplay key={activeInteractionId} state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'results':
-      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PracticeResults state={state} sessionId={activeSessionId} navigate={navigate} /></>;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PracticeResults key={activeSessionId} state={state} sessionId={activeSessionId} navigate={navigate} /></>;
     case 'upload':
-      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><UploadTranscript state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><UploadTranscript key={activeInteractionId} state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'post':
-      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PostInteraction state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
+      return <><InteractionContextBar interaction={state.interactions.find(i => i.id === activeInteractionId)} /><PostInteraction key={activeInteractionId} state={state} interactionId={activeInteractionId} navigate={navigate} /></>;
     case 'capabilities':
       return <CapabilityProgress state={state} navigate={navigate} />;
     case 'validation':
@@ -84,4 +84,4 @@ function App() {
   }
 }
 
-export default App;
+export default function App(){return <><div className="bg-slate-900 text-white px-5 py-2 text-sm flex flex-wrap gap-3 items-center justify-between"><span>{store.getState().mode==='DEMO'?'DEMO · Synthetic data and responses · Separate from your live work':'LIVE · Your work · Provider required'}</span><label>Mode <select aria-label="Application mode" className="bg-white text-slate-900 border border-slate-300 rounded p-1" value={store.getState().mode||'LIVE'} onChange={e=>store.setMode(e.target.value as 'LIVE'|'DEMO')}><option value="LIVE">Live</option><option value="DEMO">Demo (synthetic)</option></select></label></div><Screens /></>;}

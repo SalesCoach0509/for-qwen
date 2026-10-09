@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { AlertCircle, ArrowLeft, ChevronRight, Loader2, ShieldAlert, Sparkles, Target, Users } from 'lucide-react';
 import { generateScenarioPlan } from '../ai-service';
 import { store } from '../store';
@@ -84,6 +84,7 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
     () => state.briefs.find(item => item.interactionId === interactionId),
     [state.briefs, interactionId],
   );
+  const active=useRef(true);useEffect(()=>()=>{active.current=false;},[]);
   const existing = interaction?.scenarioPlan;
   const [plan, setPlan] = useState<ScenarioPlan | undefined>(existing);
   const [isDemo, setIsDemo] = useState(existing?.sourceMode === 'DEMO');
@@ -144,13 +145,15 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
         knownFacts: readPlanList(deal.knownFacts).join('\n'),
         unknowns: readPlanList(deal.unknowns).join('\n'),
       });
+      if(!active.current)return;
       const saved = { ...generated, sourceMode: isDemo ? 'DEMO' as const : 'REAL_CONTEXT' as const };
       setPlan(saved);
       store.updateInteraction(interaction.id, { scenarioPlan: saved });
     } catch (generationError) {
+      if(!active.current)return;
       setError(generationError instanceof Error ? generationError.message : 'The live AI scenario could not be generated. Please retry.');
     } finally {
-      setIsGenerating(false);
+      if(active.current)setIsGenerating(false);
     }
   };
 
@@ -183,7 +186,7 @@ export function ScenarioPlanner({ state, interactionId, navigate }: ScenarioPlan
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => loadDemo(deal.module)} className="mt-4 text-sm font-semibold text-indigo-600 underline">Load synthetic demo case</button>
+        <button hidden={state.mode!=='DEMO'} type="button" onClick={() => loadDemo(deal.module)} className="mt-4 text-sm font-semibold text-indigo-600 underline">Load synthetic demo case</button>
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <span className="text-sm font-medium text-slate-700">Pressure level:</span>
           {(['foundation', 'standard', 'advanced'] as const).map(level => (

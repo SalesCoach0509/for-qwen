@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { AppState, PreparationBrief } from '../types';
 import { store } from '../store';
 import { generateBrief } from '../ai-service';
-import { ArrowLeft, Target, Users, AlertTriangle, MessageCircle, Shield, Brain, Clock, Play, ChevronDown, ChevronUp, Lightbulb, Ban } from 'lucide-react';
+import { ArrowLeft, Brain, Play } from 'lucide-react';
+import PlanContent from './PlanContent';
 
 type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'scenario' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
 
@@ -35,7 +36,7 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
     let active = true;
     if (interaction.status !== 'PREPARING') store.transitionInteraction(interactionId, 'PREPARING');
     const previous = [...state.analyses].reverse().find(a => a.interactionId !== interactionId && a.capabilityDiagnosis.some(c => c.evidence.length > 0));
-    const priorLearning = previous?.missedOpportunities[0] || previous?.strengths[0];
+    const priorLearning = previous ? [previous.missedOpportunities[0] || previous.strengths[0], previous.nextIntervention.recommendedAction, previous.nextIntervention.successCriterion].filter(Boolean).join(' · ') : undefined;
     generateBrief(interaction, state.capabilityHistory, state.companyContext, priorLearning).then(b => {
       if (!active) return;
       store.addBrief(b);
@@ -71,7 +72,7 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
   return (
     <div className="min-h-screen bg-surface-50">
       <header className="bg-white border-b border-surface-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => navigate('dashboard')} className="p-2 hover:bg-surface-100 rounded-lg transition-all">
               <ArrowLeft size={18} className="text-surface-600" />
@@ -83,7 +84,7 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
           </div>
           <button
             onClick={() => navigate('roleplay', interactionId || undefined)}
-            className="px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
+            className="w-full sm:w-auto px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center justify-center gap-2"
           >
             <Play size={16} />
             Practice this moment
@@ -91,184 +92,9 @@ export default function PerformanceBrief({ state, interactionId, navigate }: Pro
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
-        <div className="mb-4 text-xs font-semibold text-primary-700">{brief.sourceMode === 'COMPANY_COACH' ? 'Company Coach · Approved company context' : 'General Coach · No company information connected'}</div>
-        <details className="text-xs text-surface-600 mb-4"><summary className="cursor-pointer font-semibold">Why am I seeing this advice?</summary><p className="mt-2">Objective and known facts: customer context. Personal focus: {brief.sourceProvenance?.personalCoachingFocus === 'EMPLOYEE_HISTORY' ? 'your performance history' : 'coach recommendation while evidence builds'}. Likely concerns: model hypotheses. Commercial guidance: {brief.sourceProvenance?.commercialGuidance === 'COMPANY_POLICY' ? 'approved company context' : 'unknown until company context is supplied'}.</p></details>
-        {brief.priorLearning && <div className="bg-violet-50 border border-violet-100 rounded-xl p-4 mb-4 text-sm"><strong>What we learned last time</strong><p className="mt-1">{brief.priorLearning}</p><p className="mt-2"><strong>For this interaction:</strong> Your plan and practice focus on applying that learning to this moment.</p></div>}
-        {/* Brain Map Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
-          {/* Objective - Full Width */}
-          <div className="md:col-span-2 bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-6 text-white shadow-xl shadow-primary-200">
-            <div className="flex items-center gap-2 mb-3">
-              <Target size={18} className="text-primary-200" />
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-primary-200">Meeting Objective</h2>
-            </div>
-            <p className="text-lg font-medium leading-relaxed">{brief.objective}</p>
-            <p className="text-sm text-primary-200 mt-3">Success = {interaction?.objective || 'Achieve stated goals with strong next steps'}</p>
-          </div>
-
-          {/* Stakeholder Priorities */}
-          <BriefCard
-            icon={<Users size={16} className="text-blue-500" />}
-            title="Stakeholder Priorities"
-            items={brief.stakeholderPriorities}
-            color="blue"
-          />
-
-          {/* Relevant Context */}
-          <BriefCard
-            icon={<Lightbulb size={16} className="text-amber-500" />}
-            title="What We Know"
-            items={brief.relevantContext}
-            color="amber"
-          />
-          <BriefCard icon={<Lightbulb size={16} className="text-amber-500" />} title="What We Don't Know" items={brief.unknowns || ['Not specified']} color="amber" />
-
-          {/* Likely Objections */}
-          <BriefCard
-            icon={<AlertTriangle size={16} className="text-red-500" />}
-            title="What You're Likely to Face"
-            items={brief.likelyObjections}
-            color="red"
-          />
-
-          {/* Recommended Questions */}
-          <BriefCard
-            icon={<MessageCircle size={16} className="text-emerald-500" />}
-            title="Questions Worth Asking"
-            items={brief.recommendedQuestions}
-            color="emerald"
-          />
-
-          {/* Recommended Positioning */}
-          <BriefCard
-            icon={<Target size={16} className="text-purple-500" />}
-            title="Positioning"
-            items={brief.recommendedPositioning}
-            color="purple"
-          />
-
-          {/* Things to Avoid */}
-          <BriefCard
-            icon={<Ban size={16} className="text-rose-500" />}
-            title="Don't Do This"
-            items={brief.thingsToAvoid}
-            color="rose"
-          />
-          <BriefCard icon={<AlertTriangle size={16} className="text-red-500" />} title="Risks" items={brief.risks || []} color="red" />
-
-          {/* Commercial Guidance - Full Width */}
-          <div className="md:col-span-2 bg-white rounded-xl border border-surface-100 p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Shield size={16} className="text-surface-500" />
-              <h3 className="text-sm font-semibold text-surface-700">Commercial Guidance</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-surface-400 mb-1">Discount Limits</p>
-                <p className="text-sm text-surface-700">{brief.commercialGuidance.discountLimits}</p>
-              </div>
-              <div>
-                <p className="text-xs text-surface-400 mb-1">Relevant Package</p>
-                <p className="text-sm text-surface-700">{brief.commercialGuidance.relevantPackage}</p>
-              </div>
-              <div>
-                <p className="text-xs text-surface-400 mb-1">Trade-offs to Consider</p>
-                <ul className="text-sm text-surface-700 space-y-1">
-                  {brief.commercialGuidance.tradeOffs.map((t, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
-                      <span className="text-surface-300 mt-1">•</span>
-                      {t}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p className="text-xs text-surface-400 mb-1">Escalation Items</p>
-                <ul className="text-sm text-surface-700 space-y-1">
-                  {brief.commercialGuidance.escalationItems.map((t, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
-                      <span className="text-surface-300 mt-1">•</span>
-                      {t}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mt-3">
-              ⚠️ {brief.commercialGuidance.note}
-            </p>
-          </div>
-
-          {/* Personal Coaching Focus - Full Width */}
-          <div className="md:col-span-2 bg-gradient-to-r from-violet-50 to-purple-50 rounded-xl border border-violet-100 p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Brain size={16} className="text-violet-500" />
-              <h3 className="text-sm font-semibold text-violet-700">Your Personal Performance Risk</h3>
-            </div>
-            <p className="text-sm text-violet-800 leading-relaxed">{brief.personalCoachingFocus}</p>
-            <details className="text-sm text-violet-800 mt-3"><summary className="font-semibold cursor-pointer">Why your coach is focusing here</summary><p className="mt-2">{brief.whyPersonalized || 'Based on the available interaction context and performance history.'}</p></details>
-          </div>
-
-          {/* Practice Recommendation - Full Width */}
-          <div className="md:col-span-2 bg-white rounded-xl border border-surface-100 p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <Clock size={16} className="text-primary-500" />
-              <h3 className="text-sm font-semibold text-surface-700">Practice the moment most likely to challenge you</h3>
-            </div>
-            <p className="text-sm text-surface-700 leading-relaxed">{brief.practiceRecommendation}</p>
-            <button
-              onClick={() => navigate('roleplay', interactionId || undefined)}
-              className="mt-4 px-5 py-2.5 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-all shadow-lg shadow-primary-200 flex items-center gap-2"
-            >
-              <Play size={16} />
-              Practice this moment
-            </button>
-            <button onClick={() => navigate('scenario', interactionId || undefined)} className="mt-3 text-sm font-semibold text-primary-700 underline">Customize practice scenario</button>
-          </div>
-        </div>
+      <main className="max-w-4xl mx-auto px-4 py-6"><PlanContent brief={brief} />
+      <div className="flex flex-wrap gap-3 mt-5"><button className="px-5 py-3 rounded-xl bg-primary-600 text-white" onClick={()=>navigate('roleplay',interactionId||undefined)}>Practice this moment</button><button className="px-5 py-3 rounded-xl border" onClick={()=>navigate('scenario',interactionId||undefined)}>Customize practice scenario</button><button className="px-5 py-3 rounded-xl border" onClick={()=>navigate('upload',interactionId||undefined)}>Add real performance</button></div>
       </main>
-    </div>
-  );
-}
-
-function BriefCard({ icon, title, items, color }: { icon: React.ReactNode; title: string; items: string[]; color: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const displayItems = expanded ? items : items.slice(0, 3);
-  const hasMore = items.length > 3;
-
-  const bgColors: Record<string, string> = {
-    blue: 'bg-blue-50 border-blue-100',
-    amber: 'bg-amber-50 border-amber-100',
-    red: 'bg-red-50 border-red-100',
-    emerald: 'bg-emerald-50 border-emerald-100',
-    purple: 'bg-purple-50 border-purple-100',
-    rose: 'bg-rose-50 border-rose-100',
-  };
-
-  return (
-    <div className={`rounded-xl border p-5 ${bgColors[color] || 'bg-white border-surface-100'}`}>
-      <div className="flex items-center gap-2 mb-3">
-        {icon}
-        <h3 className="text-sm font-semibold text-surface-700">{title}</h3>
-      </div>
-      <ul className="space-y-2">
-        {displayItems.map((item, i) => (
-          <li key={i} className="text-sm text-surface-700 flex items-start gap-2">
-            <span className="text-surface-400 mt-0.5 text-xs">●</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-      {hasMore && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="mt-2 text-xs text-surface-500 hover:text-surface-700 flex items-center gap-1"
-        >
-          {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-          {expanded ? 'Show less' : `${items.length - 3} more`}
-        </button>
-      )}
     </div>
   );
 }

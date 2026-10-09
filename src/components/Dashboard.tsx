@@ -1,3 +1,4 @@
+import CompanyContextEditor from './CompanyContextEditor';
 
 import { AppState } from '../types';
 import { store } from '../store';
@@ -61,7 +62,7 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
             <h2 className="text-3xl font-bold text-gray-900">{next.name}</h2>
             <p className="text-gray-600 mt-2">{next.customer} · {next.stakeholderRole || next.role} · {new Date(next.dateTime).toLocaleString()}</p>
             <p className="mt-3 text-gray-800">Objective: {next.objective || 'Define the intended outcome.'}</p>
-            <div className="bg-blue-50 rounded-lg p-4 my-5 text-sm"><strong>Why this moment matters</strong><p>{next.additionalContext || next.notes || 'Your coach will use the context you provide.'}</p><p className="mt-2"><strong>Your recurring risk:</strong> {risk || 'More performance evidence needed.'}</p></div>
+            <div className="bg-blue-50 rounded-lg p-4 my-5 text-sm"><strong>Why this moment matters</strong><p>{next.additionalContext || next.notes || 'Your coach will use the context you provide.'}</p><p className="mt-2"><strong>Current development focus:</strong> {risk || 'More performance evidence needed.'}</p></div>
             <button onClick={() => openAction(getNextBestAction(next, state), next.id)} className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg">{actionLabels[getNextBestAction(next, state)]}</button>
           </> : <><p className="text-gray-600 mb-4">Add a performance moment to get started.</p><button onClick={() => navigate('create')} className="px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg">Add performance moment</button></>}
         </section>
@@ -171,6 +172,7 @@ export default function Dashboard({ state, navigate }: DashboardProps) {
             </div>
           </div>
         )}
+        <CompanyContextEditor />
       </main>
     </div>
   );

@@ -15,6 +15,7 @@ interface Props {
 
 export default function UploadTranscript({ state, interactionId, navigate }: Props) {
   const [transcript, setTranscript] = useState('');
+  const [employeeSpeaker,setEmployeeSpeaker]=useState('You');
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<'paste' | 'upload'>('paste');
   const [source, setSource] = useState<'paste' | 'upload' | 'demo'>('paste');
@@ -58,6 +59,7 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
       capabilitySnapshotBefore: structuredClone(state.capabilityHistory),
     };
     
+    store.updateInteraction(interactionId,{employeeSpeaker});
     store.addTranscript(transcriptRecord);
     store.transitionInteraction(interactionId, 'PERFORMED');
     
@@ -83,7 +85,7 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
       <main className="max-w-3xl mx-auto px-4 py-8">
         <div className="bg-white rounded-2xl border border-surface-100 p-6 shadow-sm animate-fade-in">
           {/* Demo loader */}
-          <div className="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100">
+          {state.mode==='DEMO' && <div className="mb-6 p-4 bg-primary-50 rounded-xl border border-primary-100">
             <p className="text-sm text-primary-700 mb-2 font-medium">Want to see the analysis?</p>
             <p className="text-sm text-primary-600 mb-3">Load a demo transcript from the renewal meeting to see the full analysis flow.</p>
             <button
@@ -92,8 +94,8 @@ export default function UploadTranscript({ state, interactionId, navigate }: Pro
             >
               Load Demo Transcript
             </button>
-          </div>
-
+          </div>}
+          <label className="block mb-4 text-sm font-medium">Your speaker label in this transcript<input aria-label="Employee speaker label" value={employeeSpeaker} onChange={e=>setEmployeeSpeaker(e.target.value)} className="block border p-2 rounded mt-1"/><span className="text-xs text-surface-500">Use speaker-labelled lines, e.g. You: and CFO:. Unattributed text cannot support an employee score.</span></label>
           {/* Mode tabs */}
           <div className="flex gap-2 mb-4">
             <button

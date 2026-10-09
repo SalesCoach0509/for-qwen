@@ -3,7 +3,6 @@ import { AppState, PostInteractionAnalysis, OBJECTION_DIMENSIONS } from '../type
 import { store } from '../store';
 import { analyzeTranscript } from '../ai-service';
 import { updateCapabilityHistory } from '../capability-memory';
-import { groundTranscriptAnalysis } from '../evidence-grounding';
 import { ArrowLeft, Target, CheckCircle, AlertCircle, TrendingUp, ArrowRight, Play, BarChart3, Zap, AlertTriangle } from 'lucide-react';
 
 type Screen = 'login' | 'dashboard' | 'create' | 'brief' | 'roleplay' | 'results' | 'upload' | 'post' | 'capabilities' | 'roadmap';
@@ -47,13 +46,13 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
     // Generate analysis only after the transcript and plan are available.
     let active = true;
     if (interaction.status !== 'ANALYZING') store.transitionInteraction(interactionId, 'ANALYZING');
-    analyzeTranscript(transcript.content, interaction, brief).then(async raw => {
+    analyzeTranscript(transcript.content, interaction, brief, transcript.id).then(async raw => {
       if (!active) return;
-      const a = groundTranscriptAnalysis(raw, transcript.content, transcript.id);
+      const a = raw;
       
       // Update capability history (async with judge validation)
       const updatedHistory = await updateCapabilityHistory(
-        state.capabilityHistory,
+        store.getState().capabilityHistory,
         a.capabilityDiagnosis,
         `Real interaction: ${interaction.name}`
       );
@@ -136,7 +135,7 @@ export default function PostInteraction({ state, interactionId, navigate }: Prop
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-4xl mx-auto px-4 py-6 space-y-6"><section className="bg-white rounded-xl border p-5 mb-5"><h2 className="font-bold">Preparation Effectiveness</h2><p className="text-sm mt-2">{analysis.planVsActual.filter(r=>r.execution==='SUCCESSFUL').length} intended behaviors executed · {analysis.planVsActual.filter(r=>r.execution==='MISSED').length} missed opportunities · {analysis.planVsActual.filter(r=>r.execution==='NOT_OBSERVABLE').length} not observable</p><details className="mt-3 text-sm"><summary>Trace plan and transcript sources</summary>{analysis.planVsActual.map((r,i)=><div key={i} className="border-t py-3"><strong>{r.intended}</strong><p>Plan: {r.intendedSource}</p><p>Transcript: {r.actualSource}</p><p>{r.whyItMatters}</p><p>Confidence: {Math.round((r.confidence||0)*100)}% · {r.execution}</p></div>)}</details><button className="mt-4 text-primary-700 font-semibold" onClick={()=>navigate('create')}>Prepare the next performance moment →</button></section>
         {/* Plan vs Actual Table */}
         <div className="bg-white rounded-2xl border border-surface-100 p-6 animate-fade-in">
           <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wide mb-4 flex items-center gap-2">

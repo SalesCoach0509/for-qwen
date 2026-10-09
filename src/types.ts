@@ -10,12 +10,21 @@ export type CapabilityName =
   | 'Commercial Discipline' 
   | 'Next-Step Control';
 
+export type ExperienceLevel = 'Foundation' | 'Experienced' | 'Advanced' | 'Executive';
+export type StakeholderSeniority = 'Individual Contributor' | 'Manager' | 'Director' | 'VP' | 'C-Level / Board';
+export type AppMode = 'LIVE' | 'DEMO';
+export interface IntendedBehavior { id: string; behavior: string; priority: 'high' | 'medium' | 'low'; successCriterion: string }
+export interface PreparationItem { text: string; classification: 'KNOWN' | 'INFERRED' | 'UNKNOWN' | 'RECOMMENDED'; source: string; evidenceIds: string[] }
+export interface PersonalPerformanceRisk { behavior: string; meetingImplication: string; successBehavior: string; evidenceIds: string[]; confidence: number }
+export type CompletionReason = 'OBJECTIVE_REACHED' | 'OBJECTION_RESOLVED' | 'NEXT_STEP_REACHED' | 'STAKEHOLDER_EXIT' | 'EMPLOYEE_FATAL_ERROR' | 'MAX_SAFE_TURNS' | 'USER_END';
+export type StakeholderState = 'OPEN' | 'CURIOUS' | 'SKEPTICAL' | 'CONCERNED' | 'RESISTANT' | 'NEGOTIATING' | 'FRUSTRATED' | 'REASSURED' | 'READY_TO_ADVANCE' | 'READY_TO_EXIT';
 export type CapabilityLevel = 1 | 2 | 3 | 4 | 5;
 
 export type ObjectionHandlingDimension = 'Recognition' | 'Clarification' | 'Acknowledgement' | 'Response Relevance' | 'Value Preservation' | 'Commercial Discipline' | 'Conversational Control' | 'Advancement';
 export const OBJECTION_DIMENSIONS: ObjectionHandlingDimension[] = ['Recognition', 'Clarification', 'Acknowledgement', 'Response Relevance', 'Value Preservation', 'Commercial Discipline', 'Conversational Control', 'Advancement'];
 
 export interface CapabilityScore {
+  scenarioDifficulty?: string;
   capability: CapabilityName;
   score: number; // 1.0 - 5.0
   level: CapabilityLevel;
@@ -49,8 +58,8 @@ export interface EvidenceItem {
 
 export interface CapabilityHistory {
   capability: CapabilityName;
-  scores: { date: string; score: number; source: string }[];
-  currentScore: number;
+  scores: { date: string; score: number; source: string; sourceId?: string; confidence?: number; difficulty?: string }[];
+  currentScore: number; estimatedLevel?: number; evidenceCount?: number; updateDecision?: { decision: 'UPDATED' | 'NO_CHANGE'; reason: string; confidence: number };
   trend: 'improving' | 'stable' | 'declining';
   knownWeakness?: string;
   recentIntervention?: string;
@@ -81,7 +90,7 @@ export interface Organization {
 }
 
 export interface CompanyContext {
-  products?: string;
+  products?: string; positioning?: string; escalationRules?: string; competencyFramework?: string;
   pricing?: string;
   discountRules?: string;
   salesMethodology?: string;
@@ -117,6 +126,11 @@ export interface ProductEvent {
 }
 
 export interface Interaction {
+  employeeSpeaker?: string;
+  interactionId?: string; employeeId?: string; experienceLevel?: ExperienceLevel; stakeholderSeniority?: StakeholderSeniority;
+  context?: string; capabilityFocus?: CapabilityName; preparationId?: string; practiceSessionIds?: string[];
+  transcriptId?: string; analysisId?: string; capabilityAssessmentId?: string; interventionId?: string; nextAction?: string;
+  mode?: AppMode; risks?: string[]; previousInteractionId?: string;
   id: string;
   userId: string;
   name: string;
@@ -163,6 +177,9 @@ export interface DealIntelligence {
 }
 
 export interface PreparationBrief {
+  personalPerformanceRisk?: PersonalPerformanceRisk; intendedBehaviors?: IntendedBehavior[];
+  watchOuts?: { behavior: string; whyItMatters: string; preferredAlternative: string }[];
+  items?: PreparationItem[]; personalization?: { evidenceCount: number; pattern: string; context: string; confidence: number };
   id: string;
   interactionId: string;
   objective: string;
@@ -194,6 +211,9 @@ export interface CommercialGuidance {
 }
 
 export interface RoleplayConfig {
+  interactionId?: string; experienceLevel?: ExperienceLevel; stakeholderSeniority?: StakeholderSeniority;
+  performanceMoment?: unknown; complexityProfile?: Record<string, unknown>; persona?: Record<string, unknown>;
+  intendedBehaviors?: IntendedBehavior[]; stakeholderState?: StakeholderState;
   stakeholderRole: string;
   objectives: string[];
   likelyObjections: string[];
@@ -237,7 +257,8 @@ export interface PracticeSession {
   interactionId: string;
   config: RoleplayConfig;
   turns: PracticeTurn[];
-  status: 'active' | 'completed';
+  status: 'active' | 'completed' | 'failed';
+  completionReason?: CompletionReason; stakeholderState?: StakeholderState;
   startedAt: string;
   completedAt?: string;
 }
@@ -274,6 +295,8 @@ export interface Transcript {
 }
 
 export interface PlanVsActual {
+  intendedSource?: string; actualSource?: string; confidence?: number; whyItMatters?: string;
+  execution?: 'SUCCESSFUL' | 'MISSED' | 'NOT_OBSERVABLE';
   intended: string;
   actual: string;
   impact: 'Low' | 'Medium' | 'High';
@@ -298,6 +321,7 @@ export interface PostInteractionAnalysis {
 }
 
 export interface CoachingIntervention {
+  interactionId?: string; targetBehavior?: string; evidenceIds?: string[];
   id: string;
   title: string;
   description: string;
@@ -313,6 +337,7 @@ export interface CoachingIntervention {
 }
 
 export interface AppState {
+  mode?: AppMode;
   user: User | null;
   organization: Organization | null;
   interactions: Interaction[];
