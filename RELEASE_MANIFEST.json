@@ -1,5 +1,5 @@
 {
-  "correction": "2026-10-09-contract-location",
+  "correction": "2026-10-09-explicit-lockfiles",
   "files": [
     {
       "path": ".dockerignore",
@@ -55,7 +55,7 @@
     },
     {
       "path": "DEPLOYMENT_FIX.txt",
-      "sha256": "4121dd84b36efcaa287da5851624b5c999ac0a93388bbe4874b063de4b69b5e7"
+      "sha256": "3c80e2c5a091adbf99e87d62e7f50be7d1fe93444c3137fc978e88a8ad09acc7"
     },
     {
       "path": "dist/assets/index-B-ndNpu1.js",
@@ -83,7 +83,7 @@
     },
     {
       "path": "Dockerfile",
-      "sha256": "7c09362b3eaf7be320ce148790162835e0930033a0669cb6ede3504f70d0267e"
+      "sha256": "f3ea2186524ab6951336a2d59084873b94a5155de13bd60c30ae3aa0d272942b"
     },
     {
       "path": "docs/AI_OPERATION_CATALOG.md",
@@ -159,7 +159,7 @@
     },
     {
       "path": "README.md",
-      "sha256": "2fff0d95c68fe209cd5b9e4061d7f59f01527087a75c4e4bb7f510847a10482e"
+      "sha256": "5c5a91e08d1e04fe5325b4490f8e108dfdd700d5c72e5c3cf02278910db05a6b"
     },
     {
       "path": "scripts/check-spec.mjs",
@@ -360,6 +360,10 @@
     {
       "path": "tsconfig.node.json",
       "sha256": "9e2abb169ea87b7190613a1d4da57ca608463a453bd4231fa3aeee5e308370dd"
+    },
+    {
+      "path": "verification/backend-clean-install.txt",
+      "sha256": "b7c8005d3ce841d6afe158032bf9031dec195c1866918e16381eaea7448a4c45"
     },
     {
       "path": "verification/deployment-fix.json",

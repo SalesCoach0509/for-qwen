@@ -33,3 +33,7 @@ This remains the local-state MVP: no server persistence, secure multi-user authe
 ## Deployment correction
 
 See DEPLOYMENT_FIX.txt. This corrected folder is AI_Performance_Coach_Deployment_Fix. Contract data is under backend/contracts/.
+
+## Lockfile deployment correction
+
+This package is AI_Performance_Coach_Deployment_Fix_2. Docker explicitly requires both root and backend package-lock.json files. Upload the entire folder contents; see DEPLOYMENT_FIX.txt.

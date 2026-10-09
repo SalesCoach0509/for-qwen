@@ -1,7 +1,9 @@
-Deployment correction (2026-10-09)
+DEPLOYMENT FIX 2 — 2026-10-09
 
-The earlier archive contained shared/, but the reported Docker build context did not. Contracts now live in backend/contracts/ and both frontend and backend use those same files. Docker no longer has COPY shared/.
+The supplied backend lockfile is valid (lockfileVersion 3). A fresh npm ci --omit=dev install passed using it. The prior wildcard Docker COPY allowed a missing backend lockfile to go unnoticed until npm ci. Both Docker COPY instructions now explicitly require package.json and package-lock.json.
 
-Upload ALL contents of this folder to the Railway-linked repository. Dockerfile, package.json, src/ and backend/ must be at the configured build root. If uploaded inside a subfolder, set Railway Root Directory to that subfolder. Confirm backend/contracts/product-spec.json and operation-contracts.json are committed. Redeploy the new commit.
+Upload every file in this folder into the Railway-linked repository build root. In particular, both package-lock.json and backend/package-lock.json must be committed. Keep backend/contracts/ as well. Set Railway Root Directory to the directory containing this Dockerfile. Redeploy the updated commit.
 
-Verified: TypeScript, production Vite build, specification alignment, and all four backend/roleplay tests. Docker container build and Railway deployment were not run here. External AI provider calls were mocked in tests. Earlier IMPLEMENTATION_REPORT.txt describes the prior full UI validation; verification/deployment-fix.json records this correction.
+Do not replace npm ci with npm install: the supplied locks preserve tested dependencies. If Docker reports backend/package-lock.json missing at COPY, the uploaded repository or selected root is still incomplete.
+
+Verification: fresh backend npm ci --omit=dev passed. Prior correction passed frontend TypeScript/build/specification checks and four API/roleplay tests. No Docker engine is available here; Railway deployment remains unverified.

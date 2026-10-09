@@ -4,7 +4,7 @@ FROM node:20-alpine AS frontend-build
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Install dependencies
 RUN npm ci
@@ -21,7 +21,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Copy backend package files
-COPY backend/package*.json ./backend/
+COPY backend/package.json backend/package-lock.json ./backend/
 
 # Install locked production backend dependencies
 RUN cd backend && npm ci --omit=dev
