@@ -1,0 +1,24 @@
+✔ production server serves the merged release and preserves roleplay context across the provider boundary (1053.6826ms)
+LOCKFILE_MISSING: frontend dependencies will be resolved using npm install.
+LOCKFILE_MISSING: backend dependencies will be resolved using npm install.
+✔ source preflight allows absent lockfiles but rejects incomplete uploads (53.2548ms)
+✔ stale or malformed lockfiles fail instead of silently resolving different dependencies (56.7596ms)
+✔ production rejects missing dist/index.html (50.9392ms)
+✔ production rejects missing dist/release.json (59.1931ms)
+✔ production rejects missing dist/assets/app.js (51.6385ms)
+✔ production rejects missing dist/assets/app.css (44.7764ms)
+✔ production rejects missing backend/contracts/operation-contracts.json (37.4269ms)
+✔ source HTML cannot masquerade as a completed production build (38.2458ms)
+✔ production starts without provider credentials, honors PORT, and reports its actual build (567.4573ms)
+✔ relative imports match exact case for Linux deployments (99.5422ms)
+✔ structured state rejects malformed dialogue and prompt leakage (1.9532ms)
+✔ one repair, correct roles, deduplication and isolated session identity (0.847ms)
+✔ invalid second output fails without a result (1.4679ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1331.4897

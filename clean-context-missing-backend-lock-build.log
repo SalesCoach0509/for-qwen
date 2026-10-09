@@ -1,0 +1,33 @@
+
+> performance-coach@0.1.0 build:render
+> node scripts/build-render.mjs
+
+LOCKFILE_MISSING: backend dependencies will be resolved using npm install.
+BUILD_STEP: C:\Users\satyam srivastava\AppData\Local\pnpm\store\v11\links\@\npm\10.9.9\fccb2ef5d2c64380fbb9008452b387901dce7206f80f49dc0231ff728d9806e0\node_modules\npm\bin\npm-cli.js ci --include=dev --no-fund
+npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
+
+added 138 packages, and audited 139 packages in 17s
+
+found 0 vulnerabilities
+BUILD_STEP: C:\Users\satyam srivastava\AppData\Local\pnpm\store\v11\links\@\npm\10.9.9\fccb2ef5d2c64380fbb9008452b387901dce7206f80f49dc0231ff728d9806e0\node_modules\npm\bin\npm-cli.js install --omit=dev --no-fund
+
+added 72 packages, and audited 73 packages in 3s
+
+found 0 vulnerabilities
+BUILD_STEP: node_modules/typescript/bin/tsc --noEmit
+BUILD_STEP: node_modules/vite/bin/vite.js build --outDir dist --emptyOutDir
+vite v6.4.4 building for production...
+transforming...
+✓ 2143 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.50 kB │ gzip:   0.33 kB
+dist/assets/index-CFF3PJCD.css   32.14 kB │ gzip:   6.78 kB
+dist/assets/index-DZwvBO_E.js   775.86 kB │ gzip: 214.77 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 6.61s
+RENDER_BUILD_VERIFIED: performance-render-audit-20261009 -> C:\Users\satyam srivastava\Documents\Codex\2026-10-05\re\work\render-clean-context\dist\index.html

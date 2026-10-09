@@ -1,30 +1,33 @@
 
-Running 21 tests using 1 worker
+Running 22 tests using 1 worker
 
-(node:19948) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(node:21804) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
-  ok  1 [chromium] › tests\e2e\consolidated.spec.ts:5:1 › complete live-contract journey adapts the next plan and preserves artifact identities (12.5s)
-  ok  2 [chromium] › tests\e2e\consolidated.spec.ts:23:1 › intake requires explicit replacement and taxonomy changes real prompt context (4.4s)
-  ok  3 [chromium] › tests\e2e\consolidated.spec.ts:30:1 › demo runs the full loop without backend calls and never changes live memory (5.0s)
-  ok  4 [chromium] › tests\e2e\consolidated.spec.ts:38:89 › provider failure at CONTEXT_RISK_INTERPRETATION creates no assessment or fallback (8.4s)
-  ok  5 [chromium] › tests\e2e\consolidated.spec.ts:38:89 › provider failure at ROLEPLAY creates no assessment or fallback (3.8s)
-  ok  6 [chromium] › tests\e2e\consolidated.spec.ts:38:89 › provider failure at CAPABILITY_EVALUATION creates no assessment or fallback (4.1s)
-  ok  7 [chromium] › tests\e2e\consolidated.spec.ts:44:1 › outage blocks gate one and leaves dependent gates not run (3.1s)
-  ok  8 [chromium] › tests\e2e\consolidated.spec.ts:45:1 › malformed semantic output fails preparation cleanly (8.5s)
-(node:16308) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+  ok  1 [chromium] › tests\e2e\consolidated.spec.ts:5:1 › complete live-contract journey adapts the next plan and preserves artifact identities (6.2s)
+  ok  2 [chromium] › tests\e2e\consolidated.spec.ts:23:1 › intake requires explicit replacement and taxonomy changes real prompt context (8.8s)
+  ok  3 [chromium] › tests\e2e\consolidated.spec.ts:30:1 › demo runs the full loop without backend calls and never changes live memory (5.7s)
+  ok  4 [chromium] › tests\e2e\consolidated.spec.ts:38:89 › provider failure at CONTEXT_RISK_INTERPRETATION creates no assessment or fallback (3.6s)
+  ok  5 [chromium] › tests\e2e\consolidated.spec.ts:38:89 › provider failure at ROLEPLAY creates no assessment or fallback (3.6s)
+  ok  6 [chromium] › tests\e2e\consolidated.spec.ts:38:89 › provider failure at CAPABILITY_EVALUATION creates no assessment or fallback (8.3s)
+  ok  7 [chromium] › tests\e2e\consolidated.spec.ts:44:1 › outage blocks gate one and leaves dependent gates not run (3.0s)
+  ok  8 [chromium] › tests\e2e\consolidated.spec.ts:45:1 › malformed semantic output fails preparation cleanly (3.5s)
+(node:35760) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
-  ok  9 [chromium] › tests\e2e\integrity.spec.ts:5:1 › forged quotes and stakeholder statements cannot produce an employee score (3.3s)
-  ok 10 [chromium] › tests\e2e\integrity.spec.ts:16:1 › transcript facts, intended behavior and missing opportunity stay grounded (3.7s)
+  ok  9 [chromium] › tests\e2e\integrity.spec.ts:5:1 › forged quotes and stakeholder statements cannot produce an employee score (3.7s)
+  ok 10 [chromium] › tests\e2e\integrity.spec.ts:16:1 › transcript facts, intended behavior and missing opportunity stay grounded (8.2s)
   ok 11 [chromium] › tests\e2e\integrity.spec.ts:22:1 › memory is immutable, source-idempotent and requires three independent pattern sources (2.9s)
-  ok 12 [chromium] › tests\e2e\integrity.spec.ts:34:1 › memory judge failure leaves estimate unchanged and records NO_CHANGE (5.3s)
-  ok 13 [chromium] › tests\e2e\integrity.spec.ts:39:1 › leaving practice ignores the delayed response and records incomplete session (6.7s)
-  ok 14 [chromium] › tests\e2e\integrity.spec.ts:45:1 › store rejects cross-session evaluation, invalid lifecycle and stale transcript analysis (3.6s)
-  ok 15 [chromium] › tests\e2e\integrity.spec.ts:53:1 › custom scenario preserves supplied facts (3.8s)
-  ok 16 [chromium] › tests\e2e\integrity.spec.ts:59:1 › failed custom scenario saves no scenario and keeps prepared lifecycle (4.0s)
-  ok 17 [chromium] › tests\e2e\integrity.spec.ts:62:1 › saved legacy status and custom scenario survive migration (9.3s)
-  ok 18 [chromium] › tests\e2e\integrity.spec.ts:67:1 › weak scored practice never marks the moment ready (4.3s)
-  ok 19 [chromium] › tests\e2e\integrity.spec.ts:70:1 › wrong response session fails without showing another session dialogue (4.2s)
-  ok 20 [chromium] › tests\e2e\integrity.spec.ts:73:1 › all validation gates execute production operations using the explicit test gateway (8.3s)
-  ok 21 [chromium] › tests\e2e\integrity.spec.ts:76:1 › local employee profiles retain separate histories (4.3s)
+  ok 12 [chromium] › tests\e2e\integrity.spec.ts:34:1 › memory judge failure leaves estimate unchanged and records NO_CHANGE (3.0s)
+  ok 13 [chromium] › tests\e2e\integrity.spec.ts:39:1 › leaving practice ignores the delayed response and records incomplete session (3.9s)
+  ok 14 [chromium] › tests\e2e\integrity.spec.ts:45:1 › store rejects cross-session evaluation, invalid lifecycle and stale transcript analysis (3.5s)
+  ok 15 [chromium] › tests\e2e\integrity.spec.ts:53:1 › custom scenario preserves supplied facts (8.4s)
+  ok 16 [chromium] › tests\e2e\integrity.spec.ts:59:1 › failed custom scenario saves no scenario and keeps prepared lifecycle (3.6s)
+  ok 17 [chromium] › tests\e2e\integrity.spec.ts:62:1 › saved legacy status and custom scenario survive migration (3.8s)
+  ok 18 [chromium] › tests\e2e\integrity.spec.ts:67:1 › weak scored practice never marks the moment ready (3.6s)
+  ok 19 [chromium] › tests\e2e\integrity.spec.ts:70:1 › wrong response session fails without showing another session dialogue (3.6s)
+  ok 20 [chromium] › tests\e2e\integrity.spec.ts:73:1 › all validation gates execute production operations using the explicit test gateway (7.8s)
+  ok 21 [chromium] › tests\e2e\integrity.spec.ts:76:1 › local employee profiles retain separate histories (4.0s)
+(node:33568) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ok 22 [chromium] › tests\e2e\responsive.spec.ts:4:1 › performance plan stays readable on desktop and mobile (3.5s)
 
-  21 passed (2.0m)
+  22 passed (1.9m)

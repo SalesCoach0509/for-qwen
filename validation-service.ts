@@ -1,3 +1,4 @@
+import { BACKEND_URL } from './backend-url';
 import { checkBackendHealth, RoleplayProvider, setLLMAvailable } from './llm-provider';
 import { generateBrief, generateRoleplayConfig, generatePracticeEvaluation, analyzeTranscript } from './ai-service';
 import { store } from './store';
@@ -10,9 +11,7 @@ export async function runValidation(report:(g:Gate[])=>void){
  try{
   const health=await checkBackendHealth();setLLMAvailable(health.available,health.provider,health.model);
   if(!health.available)throw new Error('Provider unavailable');
-  const local=['localhost','127.0.0.1','::1'].includes(window.location.hostname);
-  const base=(import.meta.env.VITE_BACKEND_URL||'').replace(/\/$/,'')||(local?'http://localhost:3001':'');
-  const response=await fetch(base+'/api/diagnostic/llm-test',{method:'POST',signal:AbortSignal.timeout(125000)});
+  const response=await fetch(BACKEND_URL+'/api/diagnostic/llm-test',{method:'POST',signal:AbortSignal.timeout(125000)});
   const probe=await response.json();if(!response.ok||!probe.success)throw new Error('Probe failed');
   update(0,'PASS',`Real gateway probe succeeded: ${health.provider} / ${health.model}.`);
  }catch{update(0,'BLOCKED','The real provider could not be reached. Gates 2–5 were not run.');return gates;}

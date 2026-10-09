@@ -1,43 +1,15 @@
-# Build stage for React frontend
-FROM node:20-alpine AS frontend-build
-
+FROM node:24-bookworm-slim
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy frontend source
+# Build and run in the same directory; no cross-stage dist copy.
+# .dockerignore excludes local dependencies, old builds, and secrets.
 COPY . .
+RUN npm run build:render \
+    && node scripts/check-deployment.mjs runtime \
+    && node -e "require('node:fs').rmSync('/app/node_modules', {recursive:true, force:true})"
 
-# Build the React app
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine
-
-WORKDIR /app
-
-# Copy backend package files
-COPY backend/package*.json ./backend/
-
-# Use the lockfile when supplied; tolerate uploads that omit it
-RUN cd backend && if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi
-
-# Copy all backend source files including ai-gateway (excluding node_modules via .dockerignore)
-COPY backend/ ./backend/
-
-# Copy the built frontend from the build stage
-COPY --from=frontend-build /app/dist ./dist
-
-# Expose port
-EXPOSE 3001
-
-# Set environment variables
 ENV NODE_ENV=production
-ENV PORT=3001
-
-# Start the backend server
+ENV PORT=10000
+EXPOSE 10000
+USER node
 CMD ["node", "backend/server.js"]

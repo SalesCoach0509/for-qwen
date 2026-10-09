@@ -36,7 +36,7 @@ test('production server serves the merged release and preserves roleplay context
     for (let i = 0; i < 100; i++) {
       try { health = await (await fetch(`${origin}/api/health`)).json(); break; } catch { await new Promise(r => setTimeout(r, 100)); }
     }
-    assert.equal(health?.release, 'performance-v1-consolidated-20261007', logs);
+    assert.equal(health?.release, 'performance-render-audit-20261009', logs);
     assert.equal(health.status, 'ok', logs);
     assert.equal((await (await fetch(`${origin}/release.json`)).json()).release,health.release);
     assert.match(await (await fetch(origin)).text(), /\/assets\/index-/);

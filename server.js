@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { verifyProductionFiles } from './deployment-files.js';
 import { simulateStakeholder, validateRoleplayRequest } from './roleplay-contract.js';
 import express from 'express';
 import cors from 'cors';
@@ -13,6 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const contracts=JSON.parse(fs.readFileSync(new URL('./contracts/operation-contracts.json',import.meta.url),'utf8'));
+const productionRelease = process.env.NODE_ENV === 'production' ? verifyProductionFiles(path.resolve(__dirname, '..')) : null;
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -55,13 +57,16 @@ try {
   aiGateway = getAIGateway();
 }
 
+// App readiness is independent of external provider availability.
+app.get('/api/ready', (req, res) => res.json({status:'ok',release:productionRelease?.release || 'development'}));
+
 // Health check
 app.get('/api/health', (req, res) => {
   console.log('🔍 Health check endpoint called');
   const gatewayInfo = aiGateway.getInfo();
   console.log('🔍 Gateway info:', gatewayInfo);
   res.json({ 
-    release: 'performance-v1-consolidated-20261007',
+    release: productionRelease?.release || 'development',
     status: gatewayInfo.initialized ? 'ok' : 'degraded', 
     provider: gatewayInfo.provider,
     model: gatewayInfo.model,

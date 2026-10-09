@@ -1,0 +1,36 @@
+AI operation failed; see sanitized API status.
+
+Required environment variables:
+  - LLM_PROVIDER (gemini, openai, nvidia-nim, qwen, deepseek)
+  - LLM_API_KEY (your API key)
+  - LLM_MODEL (model ID from capability registry)
+
+Example for Gemini:
+  LLM_PROVIDER=gemini
+  LLM_API_KEY=your-gemini-key
+  LLM_MODEL=gemini-3.6-flash
+
+Example for NVIDIA NIM:
+  LLM_PROVIDER=nvidia-nim
+  LLM_API_KEY=your-nvidia-key
+  LLM_MODEL=deepseek-v4-pro
+🔍 NODE_ENV: production
+🔍 Serving static files from: C:\Users\satyam srivastava\Documents\Codex\2026-10-05\re\work\render-runtime-only\dist
+============================================================
+🚀 PERFORMANCE COACH BACKEND STARTING
+============================================================
+📡 Provider: undefined
+🤖 Model: undefined
+🎯 Capabilities: unavailable
+📏 Max Context: unavailable tokens
+🔑 Provider initialized: NO
+🔒 Mode: LIVE AI (API key secured server-side)
+🌐 Port: 10081
+🌍 NODE_ENV: production
+============================================================
+✅ Backend ready to accept requests
+============================================================
+🔍 Health check endpoint called
+🔍 Gateway info: { initialized: false }
+🔍 Health check endpoint called
+🔍 Gateway info: { initialized: false }

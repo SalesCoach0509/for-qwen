@@ -1,0 +1,41 @@
+RENDER DEPLOYMENT AUDIT — 2026-10-09
+Release: performance-render-audit-20261009
+
+WHY THE PREVIOUS FIXES WERE INSUFFICIENT
+Previous validation covered TypeScript, Vite and API tests, but no actual Docker image was built. Successive fixes addressed individual reported paths instead of the full build/runtime contract. A valid lockfile in the delivered archive did not prove its presence in Render's build context. The explicit lockfile COPY made that missing file fail earlier without resolving it. That was insufficient verification.
+
+The latest /app/dist error says the referenced build-stage directory is absent. The exact remote cause cannot be established from that error line alone. The previous supplied source successfully built dist locally; no claim is made that the remote root cause was reproduced. The new image removes that cross-stage copy and checks output explicitly before completion.
+
+FIXES APPLIED TOGETHER
+1. One Docker stage builds and runs at /app, eliminating the cross-stage dist copy.
+2. Required source files and contract JSON paths are checked before installation.
+3. Both dependency locks are included; missing locks trigger an explicit npm install warning. Invalid or mismatched locks fail. Existing valid locks use npm ci.
+4. Frontend development dependencies are installed explicitly even under NODE_ENV=production.
+5. Build explicitly targets dist and verifies index.html, referenced compiled assets, JSON contracts, and a release marker.
+6. Production refuses to start with missing assets instead of reporting a running but unusable service.
+7. Production browser API requests use the server origin, including when testing an image on localhost. Vite development retains the local API port.
+8. Readiness /api/ready is separate from AI-provider availability. The server binds 0.0.0.0 and honors PORT.
+9. Docker context allows only build inputs; local dependencies, old dist, documents, logs and secrets are excluded. The image runs as an unprivileged user and removes frontend build dependencies.
+10. Render settings and optional Blueprint replace Railway-specific delivery instructions.
+11. A distinct release identifier lets you check the deployed version through /release.json and /api/ready.
+12. A real Linux container build/start/assets workflow is included for GitHub Actions; it has not been executed here.
+
+VERIFICATION ACTUALLY COMPLETED
+- Node v24.19.0: clean locked frontend/backend dependency installation with NODE_ENV=production; TypeScript and Vite output checks passed.
+- Fresh Docker-input-equivalent directory with no dist and no backend lockfile: npm run build:render passed. Installation reported zero vulnerabilities.
+- 14 automated deployment/API/roleplay tests passed: incomplete sources, stale locks, missing HTML/JS/CSS/JSON, source HTML incorrectly used as a build, Linux filename case, custom port, arbitrary working directory, no-provider startup, asset serving, invalid requests and upstream failures.
+- Isolated runtime contained backend and dist only, without root node_modules. Real Chrome check passed login, same-origin API requests, demo plan generation and no browser exceptions.
+- Full browser regression results are recorded in verification/browser-regression.log.
+- Specification alignment passed: 28 moments, 4 profiles, 6 personas, 8 rubrics, 13 operations.
+- Final archive extraction and hash verification are recorded alongside the ZIP.
+
+LIMITS / REMAINING GATES
+- Docker engine and WSL are unavailable on this machine. Docker build, Debian/native-module execution and USER node permissions have not been executed here.
+- No Render account connection is available. Remote deployment and its selected commit/context are not verified.
+- External AI provider credentials were not supplied. AI regression tests use a mock provider; real model behavior remains unverified.
+- Recharts 2 emits a deprecation notice, and Vite emits a large-chunk warning. Neither blocked compilation or runtime tests. A major chart-library migration is outside this deployment repair.
+- Missing lockfiles permit dependency-version drift. Keep the supplied lockfiles committed when possible.
+- This is still the local-state MVP: local profiles are not secure server-side authentication, and browser-local data is not shared persistence.
+
+DEPLOYMENT
+Apply the COMPLETE package in one commit, not just Dockerfile. Follow RENDER_DEPLOYMENT.md. Expected log: RENDER_BUILD_VERIFIED: performance-render-audit-20261009 -> /app/dist/index.html. If COPY --from=frontend-build /app/dist appears, the service is using a different Dockerfile/commit.

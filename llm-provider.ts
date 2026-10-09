@@ -4,9 +4,7 @@ import { store } from './store';
 import { v4 as uuidv4 } from 'uuid';
 // Live AI provider proxy. API keys remain on the Express backend.
 
-const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
-const configuredBackendUrl = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/$/, '');
-const BACKEND_URL = configuredBackendUrl || (isLocalDevelopment ? 'http://localhost:3001' : '');
+import { BACKEND_URL } from './backend-url';
 const BACKEND_STATUS_TIMEOUT_MS = Number(import.meta.env.VITE_BACKEND_STATUS_TIMEOUT_MS || '5000');
 const AI_REQUEST_TIMEOUT_MS = Number(import.meta.env.VITE_AI_REQUEST_TIMEOUT_MS || '125000');
 

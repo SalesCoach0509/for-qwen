@@ -1,0 +1,25 @@
+name: Container deployment check
+on: [push, pull_request]
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build actual Linux image
+        run: docker build --no-cache -t performance-coach-check .
+      - name: Start without provider credentials
+        run: docker run -d --name coach -e PORT=10000 -p 10000:10000 performance-coach-check
+      - name: Check readiness and actual built assets
+        shell: bash
+        run: |
+          for i in $(seq 1 30); do
+            if curl --fail http://localhost:10000/api/ready; then break; fi
+            sleep 2
+          done
+          curl --fail http://localhost:10000/api/ready
+          curl --fail http://localhost:10000/release.json
+          curl --fail http://localhost:10000/ -o /tmp/coach-index.html
+          node --input-type=module -e 'import fs from "node:fs"; const html=fs.readFileSync("/tmp/coach-index.html","utf8"); const assets=[...html.matchAll(/(?:src|href)="(\/assets\/[^" ]+)"/g)].map(m=>m[1]); if(!assets.length) throw Error("No built assets"); for(const asset of assets){const r=await fetch("http://localhost:10000"+asset);if(!r.ok)throw Error(asset);}'
+      - name: Show container logs
+        if: always()
+        run: docker logs coach || true

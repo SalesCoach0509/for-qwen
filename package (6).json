@@ -10,7 +10,10 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "test:api": "node --test tests/roleplay-contract.test.mjs tests/backend-smoke.test.mjs",
-    "check:spec": "node scripts/check-spec.mjs"
+    "check:spec": "node scripts/check-spec.mjs",
+    "build:render": "node scripts/build-render.mjs",
+    "check:deployment": "node scripts/check-deployment.mjs",
+    "test:deployment": "node --test tests/deployment.test.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

@@ -1,13 +1,27 @@
 {
-  "source": "C:\\Users\\satyam srivastava\\Documents\\Codex\\2026-10-05\\re\\work\\verified-release-20261009",
-  "verifiedAt": "2026-10-09T06:01:25.891Z",
-  "typecheck": "PASS",
-  "build": "PASS",
-  "specifications": "PASS",
-  "api": "PASS",
-  "browser": "PASS",
-  "dependencyAudits": "PASS",
-  "externalProvider": "BLOCKED — no credentials supplied",
-  "docker": "NOT RUN — engine unavailable",
-  "deployment": "NOT RUN"
+  "results": [
+    {
+      "label": "clean-context-missing-backend-lock-build",
+      "code": 0
+    },
+    {
+      "label": "deployment-api-regression",
+      "code": 0
+    },
+    {
+      "label": "specification-alignment",
+      "code": 0
+    },
+    {
+      "label": "production-browser",
+      "code": 0
+    },
+    {
+      "label": "browser-regression",
+      "code": 0
+    }
+  ],
+  "docker": "NOT RUN: no Docker engine or WSL installed",
+  "render": "NOT RUN: no connected Render account",
+  "externalProvider": "NOT RUN: no credentials supplied"
 }
