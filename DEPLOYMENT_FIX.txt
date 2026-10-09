@@ -1,0 +1,7 @@
+Deployment correction (2026-10-09)
+
+The earlier archive contained shared/, but the reported Docker build context did not. Contracts now live in backend/contracts/ and both frontend and backend use those same files. Docker no longer has COPY shared/.
+
+Upload ALL contents of this folder to the Railway-linked repository. Dockerfile, package.json, src/ and backend/ must be at the configured build root. If uploaded inside a subfolder, set Railway Root Directory to that subfolder. Confirm backend/contracts/product-spec.json and operation-contracts.json are committed. Redeploy the new commit.
+
+Verified: TypeScript, production Vite build, specification alignment, and all four backend/roleplay tests. Docker container build and Railway deployment were not run here. External AI provider calls were mocked in tests. Earlier IMPLEMENTATION_REPORT.txt describes the prior full UI validation; verification/deployment-fix.json records this correction.

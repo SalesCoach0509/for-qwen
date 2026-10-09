@@ -1,6 +1,6 @@
 # Source of truth
 
-Specification: performance-v1.1. Runtime data: `shared/product-spec.json`. The tables below and runtime prompts must change together. Run `node scripts/check-spec.mjs` to detect drift.
+Specification: performance-v1.1. Runtime data: `backend/contracts/product-spec.json`. The tables below and runtime prompts must change together. Run `node scripts/check-spec.mjs` to detect drift.
 
 # Stakeholder persona library
 

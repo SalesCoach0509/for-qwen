@@ -1,4 +1,4 @@
-import contracts from '../shared/operation-contracts.json';
+import contracts from '../backend/contracts/operation-contracts.json';
 import { createLLMProvider } from './llm-provider';
 export const strings = (v: unknown): string[] => Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : [];
 export const confidence = (v: unknown): number => typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0;

@@ -2,7 +2,7 @@
 
 Live path: frontend operation → POST /api/ai/chat → existing universal gateway → configured provider. Roleplay uses POST /api/ai/roleplay/respond through the same gateway. Keys remain server-side. Provider/model selection is deployment configuration; configured fallback remains a real provider, never synthetic content.
 
-Version: performance-v1.1. Machine-readable envelopes: shared/operation-contracts.json. Each semantic request has messages (system/user/assistant), options.operation, jsonMode:true, temperature and bounded maxTokens. Specialized operation inputs are the final JSON user message, except the retained scenario editor’s structured text input. Server validates envelopes/required fields; frontend validates business semantics, quotes, identity and enums before persistence.
+Version: performance-v1.1. Machine-readable envelopes: backend/contracts/operation-contracts.json. Each semantic request has messages (system/user/assistant), options.operation, jsonMode:true, temperature and bounded maxTokens. Specialized operation inputs are the final JSON user message, except the retained scenario editor’s structured text input. Server validates envelopes/required fields; frontend validates business semantics, quotes, identity and enums before persistence.
 
 | Operation | Required input fields | Required output fields |
 | --- | --- | --- |

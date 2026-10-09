@@ -12,7 +12,7 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const contracts=JSON.parse(fs.readFileSync(new URL('../shared/operation-contracts.json',import.meta.url),'utf8'));
+const contracts=JSON.parse(fs.readFileSync(new URL('./contracts/operation-contracts.json',import.meta.url),'utf8'));
 const app = express();
 const PORT = process.env.PORT || 3001;
 

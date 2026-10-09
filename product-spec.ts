@@ -1,4 +1,4 @@
-import spec from '../shared/product-spec.json';
+import spec from '../backend/contracts/product-spec.json';
 import { Interaction, CapabilityName, ExperienceLevel } from './types';
 export const taxonomy = spec.taxonomy;
 export const profiles = spec.profiles;
